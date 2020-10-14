@@ -93,11 +93,15 @@ void*   gc_malloc(size_t req_size)
                 /* 刚好满足 */
                 // 从空闲列表上 移除当前的 堆，因为申请的大小刚好把堆消耗完了
                 prevp->next_free = p->next_free;
+
+            //没有刚好相同的空间，所以从大分块中拆分一块出来给用户
+            //这里因为有拆分 所以会导致内存碎片的问题，这也是 标记清除算法的一个缺点
+            //就是导致内存碎片
             else {
                 /* too big */
                 //从当前堆的末尾 减去 （req_seize+ header头）的空间返回给用户用
                 p->size -= (req_size + HEADER_SIZE);
-                //这里就是从单签的堆首  跳转到末尾申请的那个堆
+                //这里就是从当前堆的堆首  跳转到末尾申请的那个堆
                 p = NEXT_HEADER(p);
                 p->size = req_size;
             }
