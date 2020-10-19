@@ -78,7 +78,7 @@ Header*  get_header(GC_Heap *gh, void *ptr);
 
 void gc(void);
 //回收链表，挂着空闲链表
-extern Header *free_list;
+extern Header *free_list[100];
 extern GC_Heap gc_heaps[HEAP_LIMIT];
 extern size_t gc_heaps_used;
 #endif

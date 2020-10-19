@@ -120,6 +120,13 @@ void  gc(void)
 int  main(int argc, char **argv)
 {
     gc_malloc(100);
+    gc_malloc(8);
     gc();
+    for (size_t i = 0; i < 4; i++)
+    {
+        void *p = gc_malloc(8);
+        printf("%u\n",p);
+    }
+    
     return 0;
 }

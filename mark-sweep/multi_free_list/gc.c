@@ -1,7 +1,10 @@
 #include "gc.h"
 
-//回收链表，挂着空闲链表
-Header *free_list;
+//多个回收链表 索引0 表示大于100字节的大内存空闲链表
+//1 - 99 分别表示各个字节的空闲内存
+Header *free_list[100];
+#define MAX_SLICE_HEAP 99
+
 GC_Heap gc_heaps[HEAP_LIMIT];
 size_t gc_heaps_used = 0;
 
@@ -19,15 +22,25 @@ Header* add_heap(size_t req_size)
         abort();
     }
 
-    //申请的堆大小 不能小于 0x4000
-    if (req_size < TINY_HEAP_SIZE)
-        req_size = TINY_HEAP_SIZE;
+    //申请的堆大小 不能大于99 则 默认分配0x4000 大内存块 共享
+    if (req_size > MAX_SLICE_HEAP){
+        if(req_size < TINY_HEAP_SIZE)
+            req_size = TINY_HEAP_SIZE;
+        printf("大内存分配:%d\n",req_size);
+        //使用sbrk 向操作系统申请大内存块
+        // size + header大小 最后加一个 8字节是为了内存对齐
+        if((p = sbrk(req_size + PTRSIZE + HEADER_SIZE)) == (void *)-1){
+            printf("sbrk 分配内存失败\n");
+            return NULL;
+        }
+    //小内存块
+    }else{
+        printf("小内存分配:%d\n",req_size);
+        if((p = malloc(req_size + HEADER_SIZE + PTRSIZE)) == (void*)-1){
+            printf("mallock 分配内存失败\n");
+            return NULL;
+        }
 
-    //使用sbrk 向操作系统申请大内存块
-    // size + header大小 最后加一个 8字节是为了内存对齐
-    if((p = sbrk(req_size + PTRSIZE + HEADER_SIZE)) == (void *)-1){
-        printf("sbrk 分配内存失败\n");
-        return NULL;
     }
 
     /* address alignment */
@@ -60,7 +73,10 @@ Header* grow(size_t req_size)
     gc_free((void *)(up+1));
     //上面执行gc的时候，其实已经将free_list的表头改变，
     // 所以free_list->next_free 可能就是 up
-    return free_list;
+    if (req_size > MAX_SLICE_HEAP)
+        return free_list[0];
+    else
+        return free_list[req_size];
 }
 /**
  * 分配一块内存
@@ -72,17 +88,20 @@ void*   gc_malloc(size_t req_size)
     size_t do_gc = 0;
     //对齐 字节
     req_size = ALIGN(req_size, PTRSIZE);
-
+    int index = req_size;
     if (req_size <= 0) {
         return NULL;
     }
+    if(req_size > MAX_SLICE_HEAP)
+        index = 0;
+    printf("gc_malloc :%d size:%d\n",index,req_size);
     //从空闲链表上去搜寻 空余空间
-    if ((prevp = free_list) == NULL) {
+    if ((prevp = free_list[index]) == NULL) {
         // 第一次的时候 没有空闲堆，则需要去开辟一个新的堆
-        if (!(p = add_heap(TINY_HEAP_SIZE))) {
+        if (!(p = add_heap(req_size))) {
             return NULL;
         }
-        prevp = free_list = p;
+        prevp = free_list[index] = p;
     }
     //死循环 遍历
     for (p = prevp->next_free; ; prevp = p, p = p->next_free) {
@@ -105,14 +124,14 @@ void*   gc_malloc(size_t req_size)
                 p = NEXT_HEADER(p);
                 p->size = req_size;
             }
-            free_list = prevp;
+            free_list[index] = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
             FL_SET(p, FL_ALLOC);
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
         }
         //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
-        if (p == free_list) {
+        if (p == free_list[index]) {
             //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
             if (!do_gc) {
                 gc();
@@ -137,8 +156,17 @@ void    gc_free(void *ptr)
     //回收的数据立马清空
     memset(ptr,0,target->size);
 
+    //如果是小内存 不需要合并直接挂到最新的表头即可
+    if(target->size <= MAX_SLICE_HEAP){
+        target->next_free = free_list[target->size]->next_free;
+        free_list[target->size]->next_free = target;
+        return;
+    }
+    //大内存
+
     /* search join point of target to free_list */
-    for (hit = free_list; !(target > hit && target < hit->next_free); hit = hit->next_free)
+    //在回收的时候这个步骤 是为了找到 当前地址所在堆，但是如果当前ptr为新增的堆 则不需要这个步骤
+    for (hit = free_list[0]; !(target > hit && target < hit->next_free); hit = hit->next_free)
         /* heap end? And hit(search)? */
         if (hit >= hit->next_free &&
             (target > hit || target < hit->next_free))
@@ -148,11 +176,15 @@ void    gc_free(void *ptr)
     // 在空闲链表上 找到了当前header
     if (NEXT_HEADER(target) == hit->next_free) {
         /* merge */
+        // target hit   hit->next
+        //将hit 合并到 target =  target,hit->next
         target->size += (hit->next_free->size + HEADER_SIZE);
         target->next_free = hit->next_free->next_free;
     }else {
         /* join next free block */
         //1. 在扩充堆的时候 新生成的堆 会插入到 free_list 后面
+        //target->next_free = free_list->next_free
+        //free_list = target
         target->next_free = hit->next_free;
     }
     //如果当前待回收的内存 属于 hit堆里的一部分，则进行合并
@@ -165,7 +197,7 @@ void    gc_free(void *ptr)
         /* join before free block */
         hit->next_free = target;
     }
-    free_list = hit;
+    free_list[0] = hit;
     target->flags = 0;
 }
 
