@@ -1,10 +1,10 @@
 #include "gc.h"
 
 //回收链表，挂着空闲链表
-Header *free_list;
+Header *free_list = NULL;
 GC_Heap gc_heaps[HEAP_LIMIT];
 size_t gc_heaps_used = 0;
-
+int auto_gc = 1;
 
 /**
  * 增加堆
@@ -56,6 +56,7 @@ Header* grow(size_t req_size)
     }
 
     up = (Header *) cp;
+    printf("%p\n",up);
     //因为gc_free 是公用的，所以需要 将实际 mem 地址传入
     //新申请的堆不需要 进行gc 只需要挂载到 free_list 链表上就行
     gc_free((void *)(up+1));
@@ -79,10 +80,7 @@ void*   gc_malloc(size_t req_size)
     }
 alloc:
     //从空闲链表上去搜寻 空余空间
-    if ((prevp = free_list) == NULL) {
-        gc();
-    }
-
+    prevp = free_list;
     //死循环 遍历
     for (p = prevp; p; prevp = p, p = p->next_free) {
         //堆的内存足够
@@ -101,7 +99,6 @@ alloc:
             //就是导致内存碎片
             else {
                 /* too big */
-                //从当前堆的末尾 减去 （req_seize+ header头）的空间返回给用户用
                 p->size -= (req_size + HEADER_SIZE);
                 //这里就是从当前堆的堆首  跳转到末尾申请的那个堆
                 p = NEXT_HEADER(p);
@@ -110,26 +107,16 @@ alloc:
             free_list = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
             FL_SET(p, FL_ALLOC);
+            printf("%p\n",p);
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
         }
-//        //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
-//        if (p == free_list) {
-//            //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
-//            if (!do_gc) {
-//                gc();
-//                do_gc = 1;
-//            }
-//                //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-//            else if ((p = grow(req_size)) == NULL)
-//                return NULL;
-//        }
 
     }
 
     //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
     //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
-    if (!do_gc) {
+    if (!do_gc && auto_gc) {
         gc();
         do_gc = 1;
         goto alloc;
@@ -147,7 +134,7 @@ alloc:
  **/
 void    gc_free(void *ptr)
 {
-    DEBUG(printf("释放内存 :%p\n",ptr));
+    DEBUG(printf("释放内存 :%p free_list:%p\n",ptr,free_list));
     Header *target, *hit;
     //通过内存地址向上偏移量找到  header头
     target = (Header *)ptr - 1;

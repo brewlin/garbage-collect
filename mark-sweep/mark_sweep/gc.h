@@ -38,7 +38,7 @@ typedef struct gc_heap {
 #define PTRSIZE ((size_t) sizeof(void *))
 #define HEADER_SIZE ((size_t) sizeof(Header))
 //堆的上限
-#define HEAP_LIMIT 10000
+#define HEAP_LIMIT 100000
 //字节对齐 向上取整
 #define ALIGN(x,a) (((x) + (a - 1)) & ~(a - 1))
 //x为一个header*，那么通过当前的对象 可以找到下一个使用的对象地址
@@ -53,7 +53,7 @@ typedef struct gc_heap {
 #define FL_TEST(x, f) (((Header *)x)->flags & f)
 #define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_MARK))
 
-#define ROOT_RANGES_LIMIT 1000
+#define ROOT_RANGES_LIMIT 100000
 
 #define DEBUG(exp) exp
 //#define DEBUG(exp)
@@ -82,6 +82,7 @@ void gc(void);
 extern Header *free_list;
 extern GC_Heap gc_heaps[HEAP_LIMIT];
 extern size_t gc_heaps_used;
+extern int auto_gc;
 
 /****** 标记清除法实现-------------*/
 void gc_mark(void * ptr);

@@ -1,6 +1,7 @@
 #include "gc.h"
 int clear(){
-    free_list = NULL;
+    for (int i = 0; i < 99 ; ++i)
+        free_list[i] = NULL;
     for (int i = 0; i <= gc_heaps_used; ++i){
         gc_heaps[i].size = 0;
         gc_heaps[i].slot = NULL;
@@ -28,14 +29,10 @@ void test_malloc_free(size_t req_size){
     assert(p1 == p2);
     gc_free(p2);
 
-    //在不清除p1的情况下 p2 会申请不同内存
+    //因为没有空闲的，所以即使不清理的情况下还是会触发gc
     p1 = gc_malloc(req_size);
     p2 = gc_malloc(req_size);
-    if(req_size == TINY_HEAP_SIZE)
-        assert(p1 == p2);
-    else
-        assert(p1 != p2);
-
+    assert(p1 == p2);
 
     printf("-----------   passing     ------------\n\n");
     clear();
@@ -95,30 +92,26 @@ void test_reference_gc()
     }Obj;
 
     Obj* p   = gc_malloc(sizeof(Obj));
-    p->v     = 10;
+    p->v = 10;
+    //p 已经被释放了
     p->left  = gc_malloc(sizeof(Obj));
-    p->right = gc_malloc(sizeof(Obj));
-    p->left->v = 11;
-    p->right->v = 12;
+    gc();
+    assert(p->v == 0);
+    assert(p->left == NULL);
 
+
+    p   = gc_malloc(sizeof(Obj));
     //加入root 即使left right 没有加入 但是他们作为 p的子节点引用 会被标记
     add_roots(p,p+ sizeof(Obj));
+    p->v = 10;
+    p->left = gc_malloc(sizeof(Obj));
+    p->left->v = 11;
+    p->right = gc_malloc(sizeof(Obj));
+    p->right->v = 12;
     gc();
     assert(p->v == 10);
     assert(p->left->v == 11);
     assert(p->right->v == 12);
-
-    p   = gc_malloc(sizeof(Obj));
-    p->v     = 10;
-    p->left  = gc_malloc(sizeof(Obj));
-    p->left->v = 11;
-    Obj* left = p->left;
-    //没有加入root 会被清除
-    gc();
-    assert(p->v == 0);
-    assert(p->left == NULL);
-    //子节点也会被清除
-    assert(left->v == 0 );
 
 
     printf("-----------   passing     ------------\n");
@@ -131,24 +124,20 @@ void test_malloc_speed(){
     auto_gc = 0;
     time_t start,end;
     start = time(NULL);
-//    for (int i = 0; i < 1000; ++i) {
-//        int size = rand()%90;
-//        void *p = gc_malloc(size);
-//    }
     for (int i = 0; i < 10000; ++i) {
         int size = rand()%90;
         void *p = gc_malloc(size);
     }
-    void *p = gc_malloc(24);
-    p = gc_malloc(24);
-    p = gc_malloc(24);
     gc();
+    for (int i = 0; i < 10000; ++i) {
+        int size = rand() % 90;
+        void *p = gc_malloc(size);
+    }
     end = time(NULL);
     printf("execution seconds:%f\n",difftime(end,start));
 }
 int  main(int argc, char **argv)
 {
-
     //小内存测试，
     test_malloc_free(8);
     clear();
@@ -164,8 +153,7 @@ int  main(int argc, char **argv)
     //对象引用测试
     test_reference_gc();
     clear();
-
-    //TODO: gc problem
+    //测试分配速度
     test_malloc_speed();
     return 0;
 }

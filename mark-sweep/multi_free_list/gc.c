@@ -3,10 +3,10 @@
 //多个回收链表 索引0 表示大于100字节的大内存空闲链表
 //1 - 99 分别表示各个字节的空闲内存
 Header *free_list[100];
-#define MAX_SLICE_HEAP 99
 
 GC_Heap gc_heaps[HEAP_LIMIT];
 size_t gc_heaps_used = 0;
+int auto_gc = 1;
 
 
 /**
@@ -49,7 +49,7 @@ Header* add_heap(size_t req_size)
     req_size = gc_heaps[gc_heaps_used].size = req_size;
     align_p->size = req_size;
     //新的堆的下一个节点依然指向本身
-    align_p->next_free = align_p;
+    align_p->next_free = NULL;
     //新增一个堆
     gc_heaps_used++;
 
@@ -95,23 +95,22 @@ void*   gc_malloc(size_t req_size)
     if(req_size > MAX_SLICE_HEAP)
         index = 0;
     printf("gc_malloc :%d size:%d\n",index,req_size);
+
+    alloc:
     //从空闲链表上去搜寻 空余空间
-    if ((prevp = free_list[index]) == NULL) {
-        // 第一次的时候 没有空闲堆，则需要去开辟一个新的堆
-        if (!(p = add_heap(req_size))) {
-            return NULL;
-        }
-        prevp = free_list[index] = p;
-    }
+    prevp = free_list[index];
     //死循环 遍历
-    for (p = prevp->next_free; ; prevp = p, p = p->next_free) {
+    for (p = prevp; p; prevp = p, p = p->next_free) {
         //堆的内存足够
         if (p->size >= req_size) {
             //刚好满足
             if (p->size == req_size)
                 /* 刚好满足 */
                 // 从空闲列表上 移除当前的 堆，因为申请的大小刚好把堆消耗完了
-                prevp->next_free = p->next_free;
+                if(p == prevp)
+                    prevp = p->next_free;
+                else
+                    prevp->next_free = p->next_free;
 
             //没有刚好相同的空间，所以从大分块中拆分一块出来给用户
             //这里因为有拆分 所以会导致内存碎片的问题，这也是 标记清除算法的一个缺点
@@ -130,18 +129,19 @@ void*   gc_malloc(size_t req_size)
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
         }
-        //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
-        if (p == free_list[index]) {
-            //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
-            if (!do_gc) {
-                gc();
-                do_gc = 1;
-            }
-                //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-            else if ((p = grow(req_size)) == NULL)
-                return NULL;
-        }
     }
+    //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
+    //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
+    if (!do_gc && auto_gc) {
+        gc();
+        do_gc = 1;
+        goto alloc;
+    }
+        //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
+    else if ((p = grow(req_size)) != NULL){
+        goto alloc;
+    }
+    return NULL;
 }
 /**
  * 传入的是一个内存地址 是不带header头的
@@ -149,7 +149,7 @@ void*   gc_malloc(size_t req_size)
  **/
 void    gc_free(void *ptr)
 {
-    printf("start free mem:%p\n",ptr);
+    DEBUG(printf("start free mem:%p\n",ptr));
     Header *target, *hit;
     //通过内存地址向上偏移量找到  header头
     target = (Header *)ptr - 1;
@@ -158,12 +158,20 @@ void    gc_free(void *ptr)
 
     //如果是小内存 不需要合并直接挂到最新的表头即可
     if(target->size <= MAX_SLICE_HEAP){
-        target->next_free = free_list[target->size]->next_free;
-        free_list[target->size]->next_free = target;
+        if(free_list[target->size]){
+            target->next_free = free_list[target->size]->next_free;
+            free_list[target->size]->next_free = target;
+        }else{
+            free_list[target->size] = target;
+        }
         return;
     }
     //大内存
-
+    if(free_list[0] == NULL){
+        free_list[0] = target;
+        target->flags = 0;
+        return;
+    }
     /* search join point of target to free_list */
     //在回收的时候这个步骤 是为了找到 当前地址所在堆，但是如果当前ptr为新增的堆 则不需要这个步骤
     for (hit = free_list[0]; !(target > hit && target < hit->next_free); hit = hit->next_free)
