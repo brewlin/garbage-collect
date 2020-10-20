@@ -56,6 +56,7 @@ typedef struct gc_heap {
 #define ROOT_RANGES_LIMIT 1000
 
 #define DEBUG(exp) exp
+//#define DEBUG(exp)
 
 
 //回收内存
@@ -81,4 +82,16 @@ void gc(void);
 extern Header *free_list;
 extern GC_Heap gc_heaps[HEAP_LIMIT];
 extern size_t gc_heaps_used;
+
+/****** 标记清除法实现-------------*/
+void gc_mark(void * ptr);
+void  gc_mark_range(void *start, void *end);
+void     gc_sweep(void);
+void     add_roots(void * start, void * end);
+typedef struct root_range {
+    void *start;
+    void *end;
+}root;
+extern root roots[ROOT_RANGES_LIMIT];
+extern size_t root_used;
 #endif

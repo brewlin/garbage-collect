@@ -26,7 +26,7 @@ Header* add_heap(size_t req_size)
     //使用sbrk 向操作系统申请大内存块
     // size + header大小 最后加一个 8字节是为了内存对齐
     if((p = sbrk(req_size + PTRSIZE + HEADER_SIZE)) == (void *)-1){
-        printf("sbrk 分配内存失败\n");
+        DEBUG(printf("sbrk 分配内存失败\n"));
         return NULL;
     }
 
@@ -36,9 +36,10 @@ Header* add_heap(size_t req_size)
     req_size = gc_heaps[gc_heaps_used].size = req_size;
     align_p->size = req_size;
     //新的堆的下一个节点依然指向本身
-    align_p->next_free = align_p;
+    align_p->next_free = NULL;
     //新增一个堆
     gc_heaps_used++;
+    DEBUG(printf("扩堆内存:%ld ptr:%p\n",req_size,align_p));
 
     return align_p;
 }
@@ -67,7 +68,7 @@ Header* grow(size_t req_size)
  */
 void*   gc_malloc(size_t req_size)
 {
-    printf("gc_malloc :%ld\n",req_size);
+    DEBUG(printf("内存申请 :%ld\n",req_size));
     Header *p, *prevp;
     size_t do_gc = 0;
     //对齐 字节
@@ -76,23 +77,24 @@ void*   gc_malloc(size_t req_size)
     if (req_size <= 0) {
         return NULL;
     }
+alloc:
     //从空闲链表上去搜寻 空余空间
     if ((prevp = free_list) == NULL) {
-        // 第一次的时候 没有空闲堆，则需要去开辟一个新的堆
-        if (!(p = add_heap(TINY_HEAP_SIZE))) {
-            return NULL;
-        }
-        prevp = free_list = p;
+        gc();
     }
+
     //死循环 遍历
-    for (p = prevp->next_free; ; prevp = p, p = p->next_free) {
+    for (p = prevp; p; prevp = p, p = p->next_free) {
         //堆的内存足够
         if (p->size >= req_size) {
             //刚好满足
             if (p->size == req_size)
                 /* 刚好满足 */
                 // 从空闲列表上 移除当前的 堆，因为申请的大小刚好把堆消耗完了
-                prevp->next_free = p->next_free;
+                if(p == prevp)
+                    prevp = p->next_free;
+                else
+                    prevp->next_free = p->next_free;
 
             //没有刚好相同的空间，所以从大分块中拆分一块出来给用户
             //这里因为有拆分 所以会导致内存碎片的问题，这也是 标记清除算法的一个缺点
@@ -111,18 +113,33 @@ void*   gc_malloc(size_t req_size)
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
         }
-        //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
-        if (p == free_list) {
-            //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
-            if (!do_gc) {
-                gc();
-                do_gc = 1;
-            }
-                //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-            else if ((p = grow(req_size)) == NULL)
-                return NULL;
-        }
+//        //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
+//        if (p == free_list) {
+//            //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
+//            if (!do_gc) {
+//                gc();
+//                do_gc = 1;
+//            }
+//                //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
+//            else if ((p = grow(req_size)) == NULL)
+//                return NULL;
+//        }
+
     }
+
+    //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
+    //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
+    if (!do_gc) {
+        gc();
+        do_gc = 1;
+        goto alloc;
+    }
+    //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
+    else if ((p = grow(req_size)) != NULL){
+        goto alloc;
+    }
+    return NULL;
+
 }
 /**
  * 传入的是一个内存地址 是不带header头的
@@ -130,18 +147,22 @@ void*   gc_malloc(size_t req_size)
  **/
 void    gc_free(void *ptr)
 {
-    printf("start free mem:%p\n",ptr);
+    DEBUG(printf("释放内存 :%p\n",ptr));
     Header *target, *hit;
     //通过内存地址向上偏移量找到  header头
     target = (Header *)ptr - 1;
     //回收的数据立马清空
     memset(ptr,0,target->size);
 
+    if(free_list == NULL){
+        free_list = target;
+        target->flags = 0;
+        return;
+    }
     /* search join point of target to free_list */
     for (hit = free_list; !(target > hit && target < hit->next_free); hit = hit->next_free)
         /* heap end? And hit(search)? */
-        if (hit >= hit->next_free &&
-            (target > hit || target < hit->next_free))
+        if (hit >= hit->next_free && (target > hit || target < hit->next_free))
             break;
 
     // 1. 在扩充堆的时候 这个target 的下个header 指向的是非法空间

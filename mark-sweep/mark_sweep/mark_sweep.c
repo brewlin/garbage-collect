@@ -1,9 +1,6 @@
 #include "gc.h"
 
-typedef struct root_range {
-    void *start;
-    void *end;
-}root;
+
 //保存了所有申请的对象
 root roots[ROOT_RANGES_LIMIT];
 size_t root_used = 0;
@@ -20,7 +17,7 @@ void gc_mark(void * ptr)
 
     /* mark check */
     if (!(gh = is_pointer_to_heap(ptr))){
-      printf("not pointer\n");
+//      printf("not pointer\n");
       return;
     } 
     if (!(hdr = get_header(gh, ptr))) {
@@ -38,7 +35,7 @@ void gc_mark(void * ptr)
 
     /* marking */
     FL_SET(hdr, FL_MARK);
-    printf("mark ptr : %p, header : %p\n", ptr, hdr);
+//    printf("mark ptr : %p, header : %p\n", ptr, hdr);
     //进行子节点递归 标记
     gc_mark_range((void *)(hdr+1), (void *)NEXT_HEADER(hdr));
 }
@@ -78,13 +75,13 @@ void     gc_sweep(void)
             if (FL_TEST(p, FL_ALLOC)) {
                 //查看该堆是否被标记过
                 if (FL_TEST(p, FL_MARK)) {
-                    printf("mark unset : %p\n", p);
+                    DEBUG(printf("解除标记 : %p\n", p));
                     //取消标记，等待下次来回收，如果在下次回收前
                     //1. 下次回收前发现该内存又被重新访问了，则不需要清除
                     //2. 下次回收前发现该内存没有被访问过，所以需要清除
                     FL_UNSET(p, FL_MARK);
                 }else {
-                    printf("gc sweep:find one need clear\n");
+                    DEBUG(printf("清除回收 :\n"));
                     gc_free(p+1);
                 }
             }
@@ -117,9 +114,3 @@ void  gc(void)
     gc_sweep();
 }
 
-int  main(int argc, char **argv)
-{
-    gc_malloc(100);
-    gc();
-    return 0;
-}
