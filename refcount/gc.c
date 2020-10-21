@@ -4,7 +4,6 @@
 Header *free_list = NULL;
 GC_Heap gc_heaps[HEAP_LIMIT];
 size_t gc_heaps_used = 0;
-int auto_gc = 1;
 
 /**
  * 增加堆
@@ -71,7 +70,6 @@ void*   gc_malloc(size_t req_size)
 {
     DEBUG(printf("内存申请 :%ld\n",req_size));
     Header *p, *prevp;
-    size_t do_gc = 0;
     //对齐 字节
     req_size = ALIGN(req_size, PTRSIZE);
 
@@ -105,8 +103,8 @@ alloc:
                 p->size = req_size;
             }
             free_list = prevp;
-            //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
-            FL_SET(p, FL_ALLOC);
+            //新申请的对象 默认引用计数为1
+            p->ref = 1;
             printf("%p\n",p);
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
@@ -114,16 +112,8 @@ alloc:
 
     }
 
-    //这里表示前面多次都没有找到合适的空间，且已经遍历完了空闲链表 free_list
-    //这里表示在 单次内存申请的时候 且 空间不够用的情况下 需要执行一次gc
-    //一般是分块用尽会 才会执行gc 清除带回收的内存
-    if (!do_gc && auto_gc) {
-        gc();
-        do_gc = 1;
-        goto alloc;
-    }
     //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-    else if ((p = grow(req_size)) != NULL){
+    if ((p = grow(req_size)) != NULL){
         goto alloc;
     }
     return NULL;
@@ -144,7 +134,7 @@ void    gc_free(void *ptr)
 
     if(free_list == NULL){
         free_list = target;
-        target->flags = 0;
+        target->ref = 0;
         return;
     }
     /* search join point of target to free_list */
@@ -175,11 +165,10 @@ void    gc_free(void *ptr)
         hit->next_free = target;
     }
     free_list = hit;
-    target->flags = 0;
+    target->ref = 0;
 }
 
 //记录目前的堆size
-// size_t   root_ranges_used = 0;
 GC_Heap* hit_cache = NULL;
 
 GC_Heap* is_pointer_to_heap(void *ptr)
