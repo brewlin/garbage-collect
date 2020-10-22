@@ -55,11 +55,6 @@ void gc_free(void *ptr);
 void * gc_malloc(size_t req_size);
 //执行gc 垃圾回收
 void gc(void);
-//将申请的内存 加入 root 管理
-void add_roots(void * start, void * end);
-//进行标记
-void gc_mark_range(void *start, void *end);
-
 //定位内存实际所在的堆
 //如果没有找到，说明该内存非 堆内存池中申请的内存
 GC_Heap* is_pointer_to_heap(void *ptr);

@@ -84,4 +84,15 @@ int ref_count(void *ptr)
   }
   return hdr->ref;
 }
+/**
+ * 指针赋值操作
+ * @param ptr
+ * @param obj
+ */
+void gc_update(void *ptr,void *obj)
+{
+  gc_inc(obj);
+  gc_dec(*(void**)ptr);
+  *(void**)ptr = obj;
+}
 
