@@ -92,10 +92,10 @@ void     gc_sweep(void)
  * @param start
  * @param end
  */
-void     add_roots(void * start, void * end)
+void     add_roots(void * obj)
 {
-    roots[root_used].start = start;
-    roots[root_used].end = end;
+    roots[root_used].start = obj;
+    roots[root_used].end = obj + CURRENT_HEADER(obj)->size;
     root_used++;
 
     if (root_used >= ROOT_RANGES_LIMIT) {

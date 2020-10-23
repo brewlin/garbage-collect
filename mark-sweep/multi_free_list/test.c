@@ -49,7 +49,7 @@ void test_gc(size_t req_size){
 
     //因为该变量被root引用 所以不会被gc
     p1 = gc_malloc(req_size);
-    add_roots(p1,p1+req_size);
+    add_roots(p1);
     gc();
     p2 = gc_malloc(req_size);
     assert(p1 != p2);
@@ -68,7 +68,7 @@ void test_large_gc(){
 
     p1 = gc_malloc(TINY_HEAP_SIZE);
     //将对象加入root
-    add_roots(p1,p1+TINY_HEAP_SIZE);
+    add_roots(p1);
     p2 = gc_malloc(TINY_HEAP_SIZE);
     //p1 不会被回收
     //p2 会申请新的内存
@@ -102,7 +102,7 @@ void test_reference_gc()
 
     p   = gc_malloc(sizeof(Obj));
     //加入root 即使left right 没有加入 但是他们作为 p的子节点引用 会被标记
-    add_roots(p,p+ sizeof(Obj));
+    add_roots(p);
     p->v = 10;
     p->left = gc_malloc(sizeof(Obj));
     p->left->v = 11;

@@ -44,6 +44,7 @@ typedef struct gc_heap {
 //x为一个header*，那么通过当前的对象 可以找到下一个使用的对象地址
 //[ [header] x->size [header] x->size ....]
 #define NEXT_HEADER(x) ((Header *)((size_t)(x+1) + x->size))
+#define CURRENT_HEADER(x) ((Header *)x - 1)
 
 /* flags */
 #define FL_ALLOC 0x1
@@ -65,10 +66,6 @@ void gc_free(void *ptr);
 void * gc_malloc(size_t req_size);
 //执行gc 垃圾回收
 void gc(void);
-//将申请的内存 加入 root 管理
-void add_roots(void * start, void * end);
-//进行标记
-void gc_mark_range(void *start, void *end);
 
 //定位内存实际所在的堆
 //如果没有找到，说明该内存非 堆内存池中申请的内存
@@ -88,7 +85,7 @@ extern int auto_gc;
 void gc_mark(void * ptr);
 void  gc_mark_range(void *start, void *end);
 void     gc_sweep(void);
-void     add_roots(void * start, void * end);
+void     add_roots(void * obj);
 typedef struct root_range {
     void *start;
     void *end;
