@@ -102,8 +102,8 @@ alloc:
                 p->size -= (req_size + HEADER_SIZE);
                 //这里就是从当前堆的堆首  跳转到末尾申请的那个堆
                 p = NEXT_HEADER(p);
-                p->size = req_size;
             }
+            p->size = req_size;
             free_list = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
             FL_SET(p, FL_ALLOC);

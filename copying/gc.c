@@ -2,29 +2,31 @@
 
 //回收链表，挂着空闲链表
 Header *free_list = NULL;
-Header* from;
-Header* to;
+GC_Heap from;
+GC_Heap to;
 
 
 /**
  * 增加堆
  **/
-void gc_init()
+void gc_init(size_t req_size)
 {
-    req_size = TINY_HEAP_SIZE;
+//    req_size = TINY_HEAP_SIZE;
     //使用sbrk 向操作系统申请大内存块
     void* from_p = sbrk(req_size + PTRSIZE + HEADER_SIZE);
-    from  = (Header *)ALIGN((size_t)from_p, PTRSIZE);
-    from->size = req_size;
-    from->next_free = NULL;
-    gc_free((void*)from+1);
-    DEBUG(printf("扩堆内存:%ld ptr:%p\n",req_size,align_p));
+    from.slot  = (Header *)ALIGN((size_t)from_p, PTRSIZE);
+    from.slot->next_free = NULL;
+    from.slot->size = req_size;
+    from.size       = req_size;
+    gc_free((void*)(from.slot + 1));
+    DEBUG(printf("扩堆内存:%ld ptr:%p\n",req_size,from_p));
 
      //使用sbrk 向操作系统申请大内存块
     void* to_p = sbrk(req_size + PTRSIZE + HEADER_SIZE);
-    to  = (Header *)ALIGN((size_t)to_p, PTRSIZE);
-    to->size = req_size;
-    to->next_free = NULL;
+    to.slot  = (Header *)ALIGN((size_t)to_p, PTRSIZE);
+    to.slot->next_free = NULL;
+    to.slot->size = req_size;
+    to.size = req_size;
 }
 /**
  * 分配一块内存
@@ -46,9 +48,9 @@ alloc:
     //死循环 遍历
     for (p = prevp; p; prevp = p, p = p->next_free) {
         //堆的内存足够
-        if (p->size >= req_size) {
+        if (p->size >= req_size +HEADER_SIZE) {
             //刚好满足
-            if (p->size == req_size)
+            if (p->size == req_size +HEADER_SIZE)
                 /* 刚好满足 */
                 // 从空闲列表上 移除当前的 堆，因为申请的大小刚好把堆消耗完了
                 if(p == prevp)
@@ -60,12 +62,11 @@ alloc:
             //这里因为有拆分 所以会导致内存碎片的问题，这也是 标记清除算法的一个缺点
             //就是导致内存碎片
             else {
-                /* too big */
                 p->size -= (req_size + HEADER_SIZE);
                 //这里就是从当前堆的堆首  跳转到末尾申请的那个堆
                 p = NEXT_HEADER(p);
-                p->size = req_size;
             }
+            p->size = req_size;
             free_list = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
             p->flags = 0;
@@ -73,14 +74,16 @@ alloc:
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
         }
-
     }
-
     //一般是分块用尽会 才会执行gc 清除带回收的内存
     if (!do_gc) {
         do_gc = 1;
+        //内存不够用的时候会触发 复制 释放空间
+        //释放空间的时候会造成空间的压缩
+        gc();
         goto alloc;
     }
+    printf("内存不够\n");
     return NULL;
 
 }
@@ -137,13 +140,14 @@ void    gc_free(void *ptr)
 Header*  get_header(void *ptr)
 {
     size_t i;
-    if ((((void *)from) > ptr) && ((((void*)from) + HEADER_SIZE +  from->size)) <= ptr) {
+    Header* from_ptr = from.slot;
+    if ((((void *)from_ptr) > ptr) && ((((void*)from_ptr) + HEADER_SIZE +  from.size)) <= ptr) {
         return NULL;
     }
     Header *p, *pend, *pnext;
 
-    pend = (Header *)(((void*)from) + from->size);
-    for (p = from; p < pend; p = pnext) {
+    pend = (Header *)(((void*)(from_ptr+1)) + from.size);
+    for (p = from_ptr; p < pend; p = pnext) {
         pnext = NEXT_HEADER(p);
         if ((void *)(p+1) <= ptr && ptr < (void *)pnext) {
             return p;
