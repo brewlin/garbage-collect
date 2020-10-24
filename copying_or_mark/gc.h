@@ -42,6 +42,16 @@ typedef struct gc_heap {
 #define ROOT_RANGES_LIMIT 100000
 #define DEBUG(exp) exp
 
+/* flags */
+#define FL_ALLOC  0x1
+#define FL_MARK   0x2
+#define FL_COPIED 0x4
+#define FL_SET(x, f) (((Header *)x)->flags |= f)
+#define FL_UNSET(x, f) (((Header *)x)->flags &= ~(f))
+#define FL_TEST(x, f) (((Header *)x)->flags & f)
+#define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_MARK))
+#define IS_COPIED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_COPIED))
+
 
 //执行gc 垃圾回收
 void gc(void);

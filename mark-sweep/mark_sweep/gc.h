@@ -8,8 +8,6 @@
 #include <unistd.h>
 #include <string.h>
 
-
-
 /**
  * header头 每个用户用户申请的内存都有一个隐形的头部
  * 例如: gc_alloc(16) 实际申请了 16 + sizeof(header)

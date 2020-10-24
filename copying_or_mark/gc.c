@@ -64,7 +64,7 @@ alloc:
             p->size   = req_size;
             free_list = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
-            p->flags  = 0;
+            FL_SET(p->flags, FL_ALLOC);
             printf("%p\n",p);
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
