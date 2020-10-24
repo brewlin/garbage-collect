@@ -10,9 +10,10 @@
 
 //将申请的内存 加入 root 管理
 void add_roots(void* ptr);
-//进行标记
-void* gc_copy_range(void *start, void *end);
-
+//进行标记 或者 拷贝遍历
+void* gc_mark_or_copy_range(void *start, void *end);
+//在gc的时候判断该对象是否在from堆上分配的
+int   is_pointer_to_from_space(void* ptr);
 
 //每次gc的时候将 free指向 to的开头
 extern void* free_p;
@@ -23,10 +24,6 @@ typedef struct root_range {
     void *start;
     void *end;
     //这里存储了 用户方变量地址 因为复制完成后需要替换用户态的变量地址
-    //void *p = gc_malloc(10);
-    //gc()
-    //要替换p的地址
-    //所以存储了 optr  = &p;
     void *optr;
 }root;
 extern root roots[ROOT_RANGES_LIMIT];
