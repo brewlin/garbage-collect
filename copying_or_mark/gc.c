@@ -3,6 +3,7 @@
 //回收链表，挂着空闲链表
 Header *free_list = NULL;
 GC_Heap gc_heaps[10];
+int     gc_heaps_used;
 int from = 1;
 int to   = 0;
 
@@ -10,14 +11,15 @@ int to   = 0;
 /**
  * 初始化所有的堆
  **/
-void gc_init(size_t req_size)
+void gc_init(size_t heap_size,size_t heap_count)
 {
-    for (size_t i = 0; i < 10; i++){
+    gc_heaps_used = heap_count;
+    for (size_t i = 0; i < heap_count; i++){
         //使用sbrk 向操作系统申请大内存块
-        void* p = sbrk(req_size + PTRSIZE + HEADER_SIZE);
+        void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
         gc_heaps[i].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
-        gc_heaps[i].size = req_size;
-        gc_heaps[i].slot->size = req_size;
+        gc_heaps[i].size = heap_size;
+        gc_heaps[i].slot->size = heap_size;
         gc_heaps[i].slot->next_free = NULL;
         //默认情况下0 是给 to堆使用的  不需要挂载到 free_list 空闲链表上
         if(i) gc_free(gc_heaps[i].slot + 1);
@@ -64,7 +66,7 @@ alloc:
             p->size   = req_size;
             free_list = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
-            FL_SET(p->flags, FL_ALLOC);
+            FL_SET(p, FL_ALLOC);
             printf("%p\n",p);
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
@@ -103,7 +105,7 @@ void    gc_free(void *ptr)
     /* search join point of target to free_list */
     for (hit = free_list; !(target > hit && target < hit->next_free); hit = hit->next_free)
         /* heap end? And hit(search)? */
-        if (hit >= hit->next_free && (target > hit || target < hit->next_free))
+        if (hit >= hit->next_free && (target > hit || target < hit->next_free || hit->next_free == NULL))
             break;
 
     // 1. 在扩充堆的时候 这个target 的下个header 指向的是非法空间
@@ -139,7 +141,7 @@ GC_Heap* is_pointer_to_heap(void *ptr)
         ((void *)hit_cache->slot) <= ptr &&
         (size_t)ptr < (((size_t)hit_cache->slot) + hit_cache->size))
         return hit_cache;
-    for (i = 0; i < 10;  i++) {
+    for (i = 0; i < gc_heaps_used;  i++) {
         if ((((void *)gc_heaps[i].slot) <= ptr) &&
             ((size_t)ptr < (((size_t)gc_heaps[i].slot) + HEADER_SIZE +  gc_heaps[i].size))) {
             hit_cache = &gc_heaps[i];

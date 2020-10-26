@@ -25,7 +25,7 @@ int is_pointer_to_from_space(void* ptr)
 void* gc_mark(void *ptr){
     Header *hdr;
     if (!(hdr = get_header(ptr))) {
-      printf("not find header\n");
+//      printf("not find header\n");
       return ptr;
     }
     if (!FL_TEST(hdr, FL_ALLOC)) {
@@ -54,9 +54,9 @@ void* gc_copy(void *ptr){
 //      printf("not find header\n");
       return NULL;
     }
-    assert(FL_TEST(hdr->flags,FL_ALLOC));
+    assert(FL_TEST(hdr,FL_ALLOC));
     //没有复制过  0 
-    if(!IS_COPIED(hdr->flags)){
+    if(!IS_COPIED(hdr)){
         //计算复制后的指针
         Header *forwarding = (Header*)free_p;
         //在准备分配前的总空间
@@ -64,7 +64,7 @@ void* gc_copy(void *ptr){
         //分配一份内存 将源对象拷贝过来
         memcpy(forwarding, hdr, hdr->size+HEADER_SIZE);
         //拷贝过后 将原对象标记为已拷贝 为后面递归引用复制做准备
-        FL_SET(hdr->flags,FL_COPIED);
+        FL_SET(hdr,FL_COPIED);
         //free 指向下一个 body
         free_p += (HEADER_SIZE + hdr->size);
         //free_p 执行的剩余空间需要时刻维护着
@@ -172,7 +172,7 @@ void     gc_sweep(void)
 
     //遍历所有的堆内存
     //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < gc_heaps_used; i++) {
         //to 和 from堆不需要进行清除
         if(i == from || i == to) continue;
         //pend 堆内存结束为止
@@ -190,6 +190,8 @@ void     gc_sweep(void)
                     FL_UNSET(p, FL_MARK);
                 }else {
                     DEBUG(printf("清除回收 :\n"));
+                    //回收的时候 要把header->size加上
+                    p->size += HEADER_SIZE;
                     gc_free(p+1);
                 }
             }
@@ -201,7 +203,7 @@ void  gc(void)
 {
     printf("执行gc复制----\n");
     //每次gc前将 free指向 to的开头
-    gc_heaps[to].slot = gc_heaps[to].size; 
+    gc_heaps[to].slot->size = gc_heaps[to].size;
     free_p = gc_heaps[to].slot;
 
     //递归进行复制  从 from  => to
@@ -214,9 +216,11 @@ void  gc(void)
         roots[i].end   = forwarded + CURRENT_HEADER(forwarded)->size;
     }
     copy_reference();
+    //其他部分执行gc清除
+    gc_sweep();
     //首先将free_p 指向的剩余空间  挂载到空闲链表上 
     //其实就是将原先to剩余的空间继续利用起来
-    gc_free(free_p);
+    gc_free((Header*)free_p+1);
     //在gc的时候 from已经全部复制到to堆
     //这个时候需要清空from堆，但是在此之前我们需要将free_list空闲指针还保留在from堆上的去除
     remove_from();

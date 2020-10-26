@@ -55,7 +55,8 @@ typedef struct gc_heap {
 
 //执行gc 垃圾回收
 void gc(void);
-void gc_init(size_t req_size);
+//设置堆大小 和 堆个数
+void gc_init(size_t heap_size,size_t heap_count);
 //回收内存
 void     gc_free(void *ptr);
 //从堆缓存中申请一份内存
@@ -75,4 +76,5 @@ extern GC_Heap gc_heaps[10];
 extern Header *free_list;
 extern int from;
 extern int to;
+extern int gc_heaps_used;
 #endif

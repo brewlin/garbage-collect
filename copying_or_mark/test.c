@@ -7,7 +7,8 @@ typedef struct t{
 }T;
 int clear(){
     free_list = NULL;
-
+    to = 0;
+    from = 1;
     for (int j = 0; j <= root_used ; ++j){
         roots[j].start = NULL;
         roots[j].end = NULL;
@@ -15,67 +16,107 @@ int clear(){
     root_used = 0;
 }
 void test_auto_gc(){
-    //分配两个T 空间
-    gc_init(2* (sizeof(T) + HEADER_SIZE) );
+    /**
+     * 1. 每个堆 一个 T 空间大小
+     * 2. 总共3个堆
+     *          heaps[0] 作为to
+     *          heaps[1] 作为from
+     *          heaps[2] 作为mark1
+     */
+    gc_init(sizeof(T) + HEADER_SIZE,3);
+    assert(to == 0);
+    assert(from == 1);
 
+    //heaps[1] from分配完了
     T* t1 = gc_malloc(sizeof(T));
     t1->value = 1;
+    //heaps[2] mark分配完了
     T* t2 = gc_malloc(sizeof(T));
+    t1->next = t2;
     t2->value = 2;
     assert(t1!=NULL);
     assert(t2!=NULL);
     assert(t1!=t2);
 
-    //因为 t1 t2 没有加入root
-    //所以在内存不够的时候 会自动gc 进行复制 清除之前的数据
+    //会自动运行gc
+    //from和 mark1 被回收
+    //to   变成 heaps[1]
+    //from 变成 heaps[2]
+    //mark 变成 heaps[0]
     T* t3 = gc_malloc(sizeof(T));
+    t3->value = 100;
+    assert(to == 1);
+    assert(from == 2);
     //t1 t2 都被回收了
-    assert(t1->value == 0);
-    assert(t2->value == 0);
-    //t1 是属于 from堆分配的
-    //t3 是属于gc后 to堆分配的，如果gc成功后，t3应该不等于t1
-    assert(t3 != NULL);
-    assert(t3 != t1);
+    //因为gc的时候先将 gc_heaps[3] 进行标记清除，且原本的t2 是从gc_heaps[3]分配的
+    //所以再次分配的时候 由于空闲链表的设计 t3 依然先从heaps[3]分配，所以 t3==t2
+    assert(t3 == t2);
+
+    //上面gc的时候 默认情况了两个 T的空间，t3用了一个 那么还剩下一个
+    //所以正常情况下是还能分配一个
+    T* t4 = gc_malloc(sizeof(T));
+    assert(t3->value==100);
+
+
+
 }
 /**
- * 加入root后的 gc测试
+ * 测试加入root后的gc情况
  */
 void test_add_root_gc(){
-    //初始化堆  from to
-    gc_init(TINY_HEAP_SIZE);
+    /**
+     * 1. 每个堆 一个 T 空间大小
+     * 2. 总共3个堆
+     *          heaps[0] 作为to
+     *          heaps[1] 作为from
+     *          heaps[2] 作为mark1
+     */
+    gc_init(sizeof(T) + HEADER_SIZE,3);
+    assert(to == 0);
+    assert(from == 1);
 
-    T* p = gc_malloc(sizeof(T));
-    T* backup_p = p;
-    add_roots(&p);
-    p->next = gc_malloc(sizeof(T));
-    p->value = 10;
-    p->next->value = 20;
-    T* backup_next = p->next;
-    //手动触发gc 将 p 和 next 从 from 拷贝到 to
-    gc();
+    //heaps[1] from分配完了
+    T* t1 = gc_malloc(sizeof(T));
+    t1->value = 1;
+    add_roots(&t1);
+    //heaps[2] mark分配完了
+    T* t2 = gc_malloc(sizeof(T));
+    t1->next = t2;
+    t2->value = 2;
+    assert(t1!=NULL);
+    assert(t2!=NULL);
+    assert(t1!=t2);
 
-    //源地址发生改变 p != p
-    assert(p != backup_p);
-    assert(p->next != backup_next);
-    //原先的值保持不变
-    assert(p->value == 10);
-    assert(p->next != NULL);
-    assert(p->next->value == 20);
+    //会自动运行gc
+    //from和 mark1 被回收
+    //to   变成 heaps[1]
+    //from 变成 heaps[2]
+    //mark 变成 heaps[0]
+    //因为t1 加入root
+    //且t2 被t1引用 所以不会释放任何内存
+    //那么t3就会分配失败
+    T* t3 = gc_malloc(sizeof(T));
+    //t3 分配失败 内存不够
+    assert(t3 == NULL);
+    assert(to == 1);
+    assert(from == 2);
+    //t1 t2 都被回收了
+    //因为gc的时候先将 gc_heaps[3] 进行标记清除，且原本的t2 是从gc_heaps[3]分配的
+    //所以再次分配的时候 由于空闲链表的设计 t3 依然先从heaps[3]分配，所以 t3==t2
 
 
-
+    //删除 root 后 可以继续分配
+    root_used --;
+    T* t4 = gc_malloc(sizeof(T));
+    //t1 t2 都被回收
+    //t4可以分配
+    assert(t4 != NULL);
 }
 void main(){
     // 测试不加入 root的时候  会自动进行gc复制
     //看看gc复制的结果是否符合预期
-    test_auto_gc();
-    clear();
+//    test_auto_gc();
+//    clear();
 
-    //测试加入root gc复制后 用户态变量地址是否改变
-    /**
-     * void *p = gc_malloc()
-     * gc();
-     * p != p
-     */
      test_add_root_gc();
 }
