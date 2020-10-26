@@ -55,9 +55,12 @@ alloc:
             //这里因为有拆分 所以会导致内存碎片的问题，这也是 标记清除算法的一个缺点
             //就是导致内存碎片
             else {
-                p->size -= (req_size + HEADER_SIZE);
+                //TODO: 这里采用从头分配法，其他gc算法也需要测试一下这种情况
+//                p->size -= (req_size + HEADER_SIZE);
+//                p = NEXT_HEADER(p);
                 //这里就是从当前堆的堆首  跳转到末尾申请的那个堆
-                p = NEXT_HEADER(p);
+                prevp = (void*)prevp + HEADER_SIZE + req_size;
+                prevp->size = p->size - (req_size + HEADER_SIZE);
             }
             p->size   = req_size;
             free_list = prevp;

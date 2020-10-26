@@ -105,7 +105,8 @@ void adjust_ptr()
     for(int i = 0; i < root_used; i ++){
         Header* forwarding =  CURRENT_HEADER(roots[i].start)->forwarding;
         roots[i].start = forwarding+1;
-        roots[i].start = (void*)(forwarding+1) + forwarding->size;
+        roots[i].end   = (void*)(forwarding+1) + forwarding->size;
+        *(Header**)roots[i].optr = forwarding+1;
     }
     //下面更新引用
     size_t i;
@@ -140,6 +141,10 @@ void adjust_ptr()
  */
 void move_obj()
 {
+    typedef struct t{
+        int       value;
+        struct t* next;
+    }T;
     size_t total;
     Header *p, *pend, *pnext ,*new_obj,*free_p;
 
@@ -174,6 +179,9 @@ void move_obj()
     free_list = free_p;
     //total 需要单独计算剩余空间
     free_list->size = total;
+    free_list->next_free = NULL;
+    //方便测试 把空闲空间都清空
+    memset(free_list + 1,0,total);
 
 }
 void  gc(void)
