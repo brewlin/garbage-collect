@@ -141,10 +141,6 @@ void adjust_ptr()
  */
 void move_obj()
 {
-    typedef struct t{
-        int       value;
-        struct t* next;
-    }T;
     size_t total;
     Header *p, *pend, *pnext ,*new_obj,*free_p;
 
