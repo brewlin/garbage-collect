@@ -13,7 +13,7 @@ int is_pointer_to_from_space(void* ptr)
 {
 
     void* from_start = gc_heaps[from].slot;
-    void* from_end   = gc_heaps[from].slot + HEADER_SIZE + gc_heaps[from].size;
+    void* from_end   = (void*)gc_heaps[from].slot + HEADER_SIZE + gc_heaps[from].size;
     if((void*)ptr <= from_end && (void*)ptr >= from_start)
         return 1;
     return 0;
@@ -220,7 +220,10 @@ void  gc(void)
     gc_sweep();
     //首先将free_p 指向的剩余空间  挂载到空闲链表上 
     //其实就是将原先to剩余的空间继续利用起来
-    gc_free((Header*)free_p+1);
+
+    //如果没有剩余空间了则不进行操作
+    if(free_p < ((void*)gc_heaps[to].slot + gc_heaps[to].size))
+        gc_free((Header*)free_p+1);
     //在gc的时候 from已经全部复制到to堆
     //这个时候需要清空from堆，但是在此之前我们需要将free_list空闲指针还保留在from堆上的去除
     remove_from();

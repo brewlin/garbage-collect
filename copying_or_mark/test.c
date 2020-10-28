@@ -13,6 +13,8 @@ int clear(){
         roots[j].start = NULL;
         roots[j].end = NULL;
     }
+    gc_heaps_used = 0;
+    free_p = NULL;
     root_used = 0;
 }
 void test_auto_gc(){
@@ -115,8 +117,8 @@ void test_add_root_gc(){
 void main(){
     // 测试不加入 root的时候  会自动进行gc复制
     //看看gc复制的结果是否符合预期
-//    test_auto_gc();
-//    clear();
+    test_auto_gc();
+    clear();
+    test_add_root_gc();
 
-     test_add_root_gc();
 }
