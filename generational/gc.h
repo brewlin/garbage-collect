@@ -19,7 +19,7 @@
 typedef struct header {
     //TODO: 优化可以将这些通过位来压缩存储
     size_t flags;
-    size_t age
+    size_t age;
     size_t size;
     struct header *forwarding;
     struct header *next_free;

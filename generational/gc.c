@@ -68,7 +68,7 @@ void*   gc_malloc(size_t req_size)
             gc();
             goto alloc;
         }
-        printf("内存不够")
+        printf("内存不够");
         return NULL;
     }
     obj = free_list;

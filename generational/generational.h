@@ -7,11 +7,13 @@
 #ifndef GC_LEARNING_COPYING_H
 #define GC_LEARNING_COPYING_H
 
+#define AGE_MAX 3
 
 //将申请的内存 加入 root 管理
 void  add_roots(void* ptr);
 //进行标记 或者 拷贝遍历
-void* gc_mark_or_copy_range(void *start, void *end);
+void* gc_copy_range(void *start, void *end);
+void  gc_mark_range(void *start, void *end);
 //在gc的时候判断该对象是否在old堆上分配的
 int   is_pointer_to_old_space(void* ptr);
 

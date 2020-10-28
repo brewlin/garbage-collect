@@ -10,31 +10,7 @@ size_t root_used = 0;
 //每次复制前将 该指针 指向 to的首地址
 void* to_free_p;
 
-/**
- * 开始进行gc标记
- **/
-void* gc_mark(void *ptr){
-    Header *hdr;
-    if (!(hdr = get_header(ptr))) {
-//      printf("not find header\n");
-      return ptr;
-    }
-    if (!FL_TEST(hdr, FL_ALLOC)) {
-      printf("flag not set alloc\n");
-      return ptr;
-    }
-    if (FL_TEST(hdr, FL_MARK)) {
-      //printf("flag not set mark\n");
-      return ptr;
-    }
 
-    /* marking */
-    FL_SET(hdr, FL_MARK);
-//    printf("mark ptr : %p, header : %p\n", ptr, hdr);
-    //进行子节点递归 标记
-    gc_mark_or_copy_range((void *)(hdr+1) + 1, (void *)NEXT_HEADER(hdr));
-    return ptr;
-}
 /**
  * 从新生代 晋升为 老年代
  * @param ptr
@@ -60,7 +36,7 @@ void promote(void *ptr)
     FL_SET(obj,FL_COPIED);
 
     //for child: obj
-    for (void *p = ptr; p < ptr + obj->size + ; p++) {
+    for (void *p = ptr; p < ptr + obj->size  ; p++) {
 
         Header* hdr;
         //解引用 如果该内存依然是指向的from，且有forwarding 则需要改了
@@ -120,7 +96,7 @@ void* gc_copy(void *ptr){
 
             printf("需要执行拷贝 ptr:%p hdr:%p  after:%p\n",ptr,hdr,forwarding);
             //从forwarding 指向的空间开始递归
-            gc_mark_or_copy_range((void *)(forwarding+1) + 1, (void *)NEXT_HEADER(forwarding));
+            gc_copy_range((void *)(forwarding+1) + 1, (void *)NEXT_HEADER(forwarding));
             //返回body
             return forwarding + 1;
         }else{
@@ -208,7 +184,7 @@ void update_reference()
         //如果已经没有引用在新生代了 则剔除该对象
         if(!has_new_obj){
             //obj->remembers = false;
-            FL_UNSET(CURRENT_HEADER(rs[i]),FL_REMEMBERED)
+            FL_UNSET(CURRENT_HEADER(rs[i]),FL_REMEMBERED);
 
             //剔除
             rs_index -- ;
@@ -236,7 +212,10 @@ void write_barrier(void *obj_ptr,void *field,void* new_obj_ptr)
     //obj 在老年代
     //new_obj 在新生代
     //且 obj 未保存在 记忆集
-    if(obj > $old_start && new_obj < $old_start && !IS_REMEMBERED($obj)){
+    if(is_pointer_to_old_space(obj) &&
+       !is_pointer_to_old_space(new_obj) &&
+       !IS_REMEMBERED(obj))
+    {
         rs[rs_index++] = obj;
         //设置该对象已经保存在了记忆集，无需再次保存
         FL_SET(obj,FL_REMEMBERED);

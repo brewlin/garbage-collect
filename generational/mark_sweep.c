@@ -13,18 +13,18 @@ Header*  get_old_header(void *ptr)
 {
     GC_Heap* gh;
 
-    if ((gc_heaps[oldg].slot <= ptr) && ptr < gc_heaps[oldg].end)
+    if (((void*)gc_heaps[oldg].slot <= ptr) && ptr < gc_heaps[oldg].end)
         gh =  &gc_heaps[oldg];
     else
         return NULL;
 
     Header* hp = gh->slot;
-    if (hp > ptr && gh->end <= ptr)
+    if ((void*)hp > ptr && gh->end <= ptr)
         return NULL;
 
     Header *p, *pend, *pnext;
 
-    for (p = hp; p < gh->end; p = pnext) {
+    for (p = hp; (void*)p < gh->end; p = pnext) {
         pnext = NEXT_HEADER(p);
         if ((void *)(p+1) <= ptr && ptr < (void *)pnext) {
             return p;
@@ -42,7 +42,7 @@ void gc_mark(void * ptr)
 {
     Header *hdr;
     //老年代gc 只需要检查是否是老年代区即可
-    if (!(hdr = get_old_header(gh, ptr))) {
+    if (!(hdr = get_old_header(ptr))) {
       printf("not find header\n");
       return;
     }
@@ -90,7 +90,7 @@ void     gc_sweep(void)
     //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
 
     //老年代gc 只清除 老年代堆即可
-    for (p = gc_heaps[oldg].slot; p < gc_heaps[oldg].end; p = NEXT_HEADER(p)) {
+    for (p = gc_heaps[oldg].slot; (void*)p < gc_heaps[oldg].end; p = NEXT_HEADER(p)) {
         //查看该堆是否已经被使用
         if (FL_TEST(p, FL_ALLOC)) {
             //查看该堆是否被标记过

@@ -63,7 +63,7 @@ void test_add_root_gc(){
      *          heaps[1] 作为from
      *          heaps[2] 作为mark1
      */
-    gc_init(sizeof(T) + HEADER_SIZE,3);
+    gc_init(sizeof(T) + HEADER_SIZE);
     assert(to == 0);
     assert(from == 1);
 
