@@ -20,16 +20,14 @@ void promote(void *ptr)
 {
     Header* obj = CURRENT_HEADER(ptr);
     //1 从老年代空间分配出一块 内存 (老年代堆 完全采用 gc标记-清除算法来管理)
-    void* new_obj = gc_old_malloc(CURRENT_HEADER(ptr)->size + HEADER_SIZE);
+    void* new_obj_ptr = gc_old_malloc(CURRENT_HEADER(ptr)->size);
+    Header* new_obj = CURRENT_HEADER(new_obj_ptr);
+
     if(new_obj == NULL){
-        //执行老年代GC ，也就是标记清除算法
-        major_gc();
-        new_obj = gc_old_malloc(CURRENT_HEADER(ptr)->size + HEADER_SIZE);
-        if(new_obj == NULL) abort();
+        abort();
     }
     //将obj 拷贝到 new_obj中
-    memcpy(new_obj,ptr,obj->size);
-
+    memcpy(new_obj,obj,obj->size + HEADER_SIZE);
 
     obj->forwarding = new_obj;
     //标志已经复制过了 forwarded = true
@@ -46,7 +44,7 @@ void promote(void *ptr)
             continue;
         }
         //存在就要将 new_obj 加入集合
-        rs[rs_index++] = new_obj;
+        rs[rs_index++] = new_obj_ptr;
         break;
     }
 
@@ -157,14 +155,14 @@ void update_reference()
             Header* hdr;
             void *ptr = *(void**)p;
             //如果 child 引用属于新生代 则需要 进行拷贝
-            if (!(hdr = get_header(ptr))) {
+            if (hdr = get_header(ptr)) {
 
                 void* new_obj = gc_copy(ptr);
                 printf("拷贝引用 hdr:%p new_obj:%p\n",hdr, new_obj);
                 *(Header**)p = new_obj;
 
                 //判断拷贝过后的 new_obj 是否还是继续属于新生代
-                if (!(hdr = get_header(new_obj))) {
+                if (hdr = get_header(new_obj)) {
                     has_new_obj = 1;
                 }
 
@@ -237,15 +235,13 @@ void  gc(void)
 
     //递归进行复制  从 from  => to
     for(int i = 0;i < root_used;i++){
-        void* forwarded = gc_copy(roots[i].start);
+        void* forwarded;
+        if(!(forwarded = gc_copy(roots[i].start))) continue;
 
-        //只有新生代的对象才会更新root ，如果该对象被晋升为老年代则不更新root
-        if(!is_pointer_to_old_space(forwarded)){
-            *(Header**)roots[i].optr = forwarded;
-            //将root 所有的执行换到 to上
-            roots[i].start = forwarded;
-            roots[i].end   = forwarded + CURRENT_HEADER(forwarded)->size;
-        }
+        *(Header**)roots[i].optr = forwarded;
+        //将root 所有的执行换到 to上
+        roots[i].start = forwarded;
+        roots[i].end   = forwarded + CURRENT_HEADER(forwarded)->size;
     }
 
     //更新跨代引用
@@ -254,12 +250,12 @@ void  gc(void)
     //清空 新生代
     new_free_p = gc_heaps[newg].slot ;
     new_free_p->size = gc_heaps[newg].size;
-    gc_free(gc_heaps[newg].slot + 1);
+    memset(new_free_p+1,0,new_free_p->size);
 
 
     //清空 幸存代  from
     gc_heaps[survivorfromg].slot->size = gc_heaps[survivorfromg].size;
-    gc_free(gc_heaps[survivorfromg].slot + 1);
+    memset(gc_heaps[survivorfromg].slot + 1,0,gc_heaps[survivorfromg].size);
 
     //交换 swap(幸存代from ,幸存代to);
     GC_Heap tmp             = gc_heaps[survivorfromg];

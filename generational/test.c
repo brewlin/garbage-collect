@@ -138,8 +138,8 @@ void test_promote()
      *          heaps[2] 作为 幸存代 to
      *          heaps[3] 作为 老年代
      */
-    //每个堆可以容纳1个T
-    gc_init(sizeof(T) + HEADER_SIZE);
+    //每个堆可以容纳2个T
+    gc_init(2*(sizeof(T) + HEADER_SIZE));
 
     //新生代满了
     T* t1 = gc_malloc(sizeof(T));
@@ -156,14 +156,44 @@ void test_promote()
     assert(CURRENT_HEADER(t1)->age == 2);
     assert(is_pointer_to_space(t1,&gc_heaps[survivorfromg]));
 
+
+
     gc();
     assert(CURRENT_HEADER(t1)->age == 3);
     assert(is_pointer_to_space(t1,&gc_heaps[survivorfromg]));
 
-    //开始老年代gc
+    //这个时候新申请一个内存不加入root
+    T* younger = gc_malloc(sizeof(T));
+    t1->next = younger;
+
+    //开始老年代gc 现在t1 完全归老年代管理了且 只执行标记清除算法
+    //yonger 还在新生代 但是root已经索引不到他了 但是依然会被老年代通过rs 阶段进行复制
     gc();
-    //但是t1 依然指向的新生代区 root也 没有改变 但是老年代备份了一个
     assert(rs_index == 1);
+    //t1 指向了老年代区
+    assert(is_pointer_to_space(t1,&gc_heaps[oldg]));
+    assert(CURRENT_HEADER(t1->next)->age == 1);
+    assert(is_pointer_to_space(t1->next,&gc_heaps[survivorfromg]));
+
+    /****************接下来测试 yonger 作为被老年代引用的新生代对象 一起晋升为老年代后导致 t1 和 yonger都被回收 ********/
+    t1->value = 11;
+    t1->next->value = 22;
+
+    gc();
+    assert(CURRENT_HEADER(t1->next)->age == 2);
+    gc();
+    assert(CURRENT_HEADER(t1->next)->age == 3);
+
+    //这里两边都成为老年代 再也没有新生代的引用 被标记清除回收
+    gc();
+    T* old = t1->next;
+    assert(is_pointer_to_space(t1->next,&gc_heaps[oldg]));
+
+    //执行老年代gc
+    major_gc();
+
+    assert(t1->value == 0);
+    assert(old->value == 0);
 
 
 
@@ -181,9 +211,10 @@ void main(){
     clear();
     printf("*********************test auto_gc pass *************\n\n");
 
-    printf("\n*******************测试添加root 后的gc *************\n");
+
+    printf("\n*******************测试晋升老年代gc *************\n");
     test_promote();
-    printf("*********************test auto_gc pass *************\n\n");
+    printf("*********************test promote pass *************\n\n");
 
 
 }

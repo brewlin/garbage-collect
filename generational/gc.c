@@ -238,19 +238,3 @@ Header*  get_header(void *ptr)
     }
     return NULL;
 }
-
-//在gc的时候 from已经全部复制到to堆
-//这个时候需要清空from堆，但是再次之前我们需要将free_list空闲指针还保留在from堆上的去除
-void remove_from(){
-    //遍历所有的空闲链表如果在from堆则去除该引用
-    Header* prevp = free_list;
-
-    void* from_start = gc_heaps[from].slot;
-    void* from_end   = gc_heaps[from].slot + HEADER_SIZE + gc_heaps[from].size;
-    for (Header* p = prevp; p ; prevp = p, p = p->next_free) {
-        //看看当前 p 是否在堆  from上
-        if((void*)p <= from_end && (void*)p >= from_start)
-            prevp->next_free = p->next_free;
-    } 
-
-}
