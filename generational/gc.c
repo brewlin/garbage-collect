@@ -71,19 +71,20 @@ void*   gc_malloc(size_t req_size)
         printf("内存不够");
         return NULL;
     }
-    obj = free_list;
-    obj->size = req_size;
-    FL_SET(obj, FL_ALLOC);
-    //设置年龄为0
-    obj->age = 0;
-    obj->forwarding = NULL;
-    FL_UNSET(obj,FL_REMEMBERED);
+    obj = new_free_p;
 
     //将新生代空闲指针 移动到下一个空闲地址开头
     int left_size = new_free_p->size - HEADER_SIZE - req_size;
     new_free_p = (void*)(new_free_p+1) + req_size;
     //并设置正确的空余空间大小
     new_free_p->size = left_size;
+
+    obj->size = req_size;
+    FL_SET(obj, FL_ALLOC);
+    //设置年龄为0
+    obj->age = 0;
+    obj->forwarding = NULL;
+    FL_UNSET(obj,FL_REMEMBERED);
 
     return obj+1;
 }
