@@ -66,16 +66,18 @@ void* gc_copy(void *ptr){
       return NULL;
     }
     assert(FL_TEST(hdr,FL_ALLOC));
-    //TODO: to空间不够了之后 可以将这些数据复制到 老年代空间去
-    if((hdr->size + HEADER_SIZE) > ((Header*)to_free_p)->size){
-        printf("to 空间不够了 gc 复制阶段错误\n");
-        abort();
-    }
+
     //没有复制过  0
     if(!IS_COPIED(hdr)){
         //判断年龄是否小于阈值
         if(hdr->age < AGE_MAX)
         {
+            //TODO: to空间不够了之后 可以将这些数据复制到 老年代空间去
+            if((hdr->size + HEADER_SIZE) > ((Header*)to_free_p)->size){
+                printf("to 空间不够了 gc 复制阶段错误\n");
+                abort();
+            }
+
             //计算复制后的指针
             Header *forwarding = (Header*)to_free_p;
             //在准备分配前的总空间
@@ -96,7 +98,15 @@ void* gc_copy(void *ptr){
 
             printf("需要执行拷贝 ptr:%p hdr:%p  after:%p\n",ptr,hdr,forwarding);
             //从forwarding 指向的空间开始递归
-            gc_copy_range((void *)(forwarding+1) + 1, (void *)NEXT_HEADER(forwarding));
+            //递归子对象进行复制
+            for (void* p = (void*)(forwarding + 1) + 1 ; p < (void*)NEXT_HEADER(forwarding);p++){
+                //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+                //递归进行 引用的拷贝
+                void *exist  = gc_copy(*(void **)p);
+                if(exist){
+                    *(Header**)p = exist;
+                }
+            }
             //返回body
             return forwarding + 1;
         }else{
@@ -107,25 +117,6 @@ void* gc_copy(void *ptr){
     }
     //forwarding 是带有header头部的，返回body即可
     return hdr->forwarding + 1;
-}
-/**
- * 遍历root 进行标记
- * @param start
- * @param end
- */
-void*  gc_copy_range(void *start, void *end)
-{
-    void *p;
-
-    void* new_obj = gc_copy(start);
-    //可能申请的内存 里面又包含了其他内存
-    for (p = start + 1; p < end; p++) {
-         //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-         //递归进行 引用的拷贝
-         gc_copy(*(void **)p);
-    }
-    //返回 body
-    return new_obj;
 }
 /**
  * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
@@ -240,13 +231,13 @@ void  gc(void)
 {
     printf("执行gc复制----\n");
     //每次gc前将 free指向 to的开头
-    gc_heaps[to].slot->size = gc_heaps[to].size;
+    gc_heaps[survivortog].slot->size = gc_heaps[survivortog].size;
     //初始化to空间的首地址
     to_free_p = gc_heaps[survivortog].slot;
 
     //递归进行复制  从 from  => to
     for(int i = 0;i < root_used;i++){
-        void* forwarded = gc_copy_range(roots[i].start, roots[i].end);
+        void* forwarded = gc_copy(roots[i].start);
         //判断 新对象 是否属于老年代堆
         if(!is_pointer_to_old_space(forwarded)){
             *(Header**)roots[i].optr = forwarded;
@@ -261,11 +252,13 @@ void  gc(void)
     update_reference();
 
     //清空 新生代
-    gc_free(gc_heaps[newg].slot + 1);
     new_free_p = gc_heaps[newg].slot ;
     new_free_p->size = gc_heaps[newg].size;
+    gc_free(gc_heaps[newg].slot + 1);
+
 
     //清空 幸存代  from
+    gc_heaps[survivorfromg].slot->size = gc_heaps[survivorfromg].size;
     gc_free(gc_heaps[survivorfromg].slot + 1);
 
     //交换 swap(幸存代from ,幸存代to);
