@@ -59,24 +59,11 @@ void gc_mark(void * ptr)
     FL_SET(hdr, FL_MARK);
 //    printf("mark ptr : %p, header : %p\n", ptr, hdr);
     //进行子节点递归 标记
-    gc_mark_range((void *)(hdr+1), (void *)NEXT_HEADER(hdr));
-}
-/**
- * 遍历root 进行标记
- * @param start
- * @param end
- */
-void  gc_mark_range(void *start, void *end)
-{
-    void *p;
-
-    //start 表示当前对象 需要释放
-    gc_mark(start);
-    //可能申请的内存 里面又包含了其他内存
-    for (p = start+1; p < end; p++) {
-         //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-         gc_mark(*(void **)p);
+    for (void* p = ptr + 1; p < (void*)NEXT_HEADER(hdr); p++) {
+        //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+        gc_mark(*(void **)p);
     }
+
 }
 /**
  * 清除 未标记内存 进行回收利用
@@ -112,9 +99,10 @@ void     gc_sweep(void)
  */
 void  major_gc(void)
 {
-    //垃圾回收前 先从 root 开始 进行递归标记
-    for(int i = 0;i < root_used;i++){
-        gc_mark_range(roots[i].start, roots[i].end);
+    //rs 里的基本都是老年代
+    for(int i = 0; i < rs_index; i ++) {
+        //只对老年代 对象进行gc
+        gc_mark(rs[i]);
     }
     //标记完成后 在进行 清除 对于没有标记过的进行回收
     gc_sweep();

@@ -7,13 +7,16 @@ typedef struct t{
 }T;
 int clear(){
     free_list = NULL;
-    to = 0;
-    from = 1;
+    new_free_p = NULL;
+    to_free_p = NULL;
     for (int j = 0; j <= root_used ; ++j){
         roots[j].start = NULL;
         roots[j].end = NULL;
     }
     root_used = 0;
+    gc_heaps_used = 0;
+    //清空结果集
+    rs_index = 0;
 }
 /**
  * 查看该对象是否存在于from堆上
@@ -48,9 +51,6 @@ void test_auto_gc(){
     T* p2 = gc_malloc(sizeof(T));
     assert(p1->value == 0);
     assert(p1 == p2);
-
-
-
 }
 /**
  * 测试加入root后的gc情况
@@ -58,57 +58,132 @@ void test_auto_gc(){
 void test_add_root_gc(){
     /**
      * 1. 每个堆 一个 T 空间大小
-     * 2. 总共3个堆
-     *          heaps[0] 作为to
-     *          heaps[1] 作为from
-     *          heaps[2] 作为mark1
+     *
+     * 2. 总共4个堆
+     *          heaps[0] 作为 新生代
+     *          heaps[1] 作为 幸存代 from
+     *          heaps[2] 作为 幸存代 to
+     *          heaps[3] 作为 老年代
      */
-    gc_init(sizeof(T) + HEADER_SIZE);
-    assert(to == 0);
-    assert(from == 1);
+     //每个堆可以容纳2个T
+    gc_init(2*(sizeof(T) + HEADER_SIZE));
 
-    //heaps[1] from分配完了
+    //从 heaps[0]分配
     T* t1 = gc_malloc(sizeof(T));
-    t1->value = 1;
+    t1->value = 11;
+    assert(is_pointer_to_space(t1,&gc_heaps[newg]));
+    //加入root
     add_roots(&t1);
-    //heaps[2] mark分配完了
+
+    //t2也是 heaps[0] 新生代分配
     T* t2 = gc_malloc(sizeof(T));
+    t2->value = 22;
+    assert(is_pointer_to_space(t1,&gc_heaps[newg]));
+
+    //t1引用了t2
     t1->next = t2;
-    t2->value = 2;
-    assert(t1!=NULL);
-    assert(t2!=NULL);
-    assert(t1!=t2);
 
-    //会自动运行gc
-    //from和 mark1 被回收
-    //to   变成 heaps[1]
-    //from 变成 heaps[2]
-    //mark 变成 heaps[0]
-    //因为t1 加入root
-    //且t2 被t1引用 所以不会释放任何内存
-    //那么t3就会分配失败
+    /*1. --------------------t3 申请时会自动触发gc--------------------*/
+    //t1 t2 拷贝到了 to区 因为gc后会交换 from = to 所以先保存to索引
+    GC_Heap to = gc_heaps[survivortog];
     T* t3 = gc_malloc(sizeof(T));
-    //t3 分配失败 内存不够
-    assert(t3 == NULL);
-    assert(to == 1);
-    assert(from == 2);
-    //t1 t2 都被回收了
-    //因为gc的时候先将 gc_heaps[3] 进行标记清除，且原本的t2 是从gc_heaps[3]分配的
-    //所以再次分配的时候 由于空闲链表的设计 t3 依然先从heaps[3]分配，所以 t3==t2
+    t3->value = 33;
+    /*2. --------------------现在 新生代区已经空了出来 t3从新生代区分配--------------------*/
+    assert(is_pointer_to_space(t1,&to));
+    assert(is_pointer_to_space(t1->next,&to));
+    //TODO:不要对 没有加入 root 但是却被root里的对象引用的对象进行测试
+    // assert(is_pointer_to_space(t2,&to));
+    //因为t2 所指向的地址不会被修改，但是t1->next 原先是执向的t2 现在已经复制后拷贝了t2 也就是t1->next != t2
+    //所以如果t2 在后面要继续直接引用的话 在gc应用的时候也需要加入root
+    assert(t1->next != t2);
+    assert(is_pointer_to_space(t3,&gc_heaps[newg]));
+    //测试他们的年龄对不对
+    assert(CURRENT_HEADER(t1)->age == 1);
+    assert(CURRENT_HEADER(t1->next)->age == 1);
 
-
-    //删除 root 后 可以继续分配
-    root_used --;
+    //新生代依然还有一个空间 申请过后就满了
     T* t4 = gc_malloc(sizeof(T));
-    //t1 t2 都被回收
-    //t4可以分配
-    assert(t4 != NULL);
+    assert(t4);
+    assert(is_pointer_to_space(t4,&gc_heaps[newg]));
+    t4->value = 44;
+
+    //分配t5的时候 新生代满了 需要gc
+    //: t4 t3 没有加入root 被回收
+    //: t1 t2 有root 年龄 + 1
+    //: t1 t2 拷贝到了 to空间
+    to = gc_heaps[survivortog];
+    T* t5 = gc_malloc(sizeof(T));
+    assert(t5);
+    assert(is_pointer_to_space(t5,&gc_heaps[newg]));
+    //t3 t4 被回收
+    assert(t3->value != 33);
+    assert(t4->value != 44);
+    assert(CURRENT_HEADER(t1)->age == 2);
+    //不要直接测试 t2->age 因为t2没有加入root被回收了但是 t1-next没有
+    assert(CURRENT_HEADER(t1->next)->age == 2);
+    assert(is_pointer_to_space(t1,&to));
+    assert(is_pointer_to_space(t1->next,&to));
+}
+/**
+ * 测试晋升老年代
+ */
+void test_promote()
+{
+    /**
+     * 1. 每个堆 一个 T 空间大小
+     *
+     * 2. 总共4个堆
+     *          heaps[0] 作为 新生代
+     *          heaps[1] 作为 幸存代 from
+     *          heaps[2] 作为 幸存代 to
+     *          heaps[3] 作为 老年代
+     */
+    //每个堆可以容纳1个T
+    gc_init(sizeof(T) + HEADER_SIZE);
+
+    //新生代满了
+    T* t1 = gc_malloc(sizeof(T));
+    add_roots(&t1);
+    assert(t1);
+
+    gc();
+    //拷贝到了幸存to堆
+    assert(CURRENT_HEADER(t1)->age == 1);
+    assert(is_pointer_to_space(t1,&gc_heaps[survivorfromg]));
+
+    //拷贝到了幸存to堆
+    gc();
+    assert(CURRENT_HEADER(t1)->age == 2);
+    assert(is_pointer_to_space(t1,&gc_heaps[survivorfromg]));
+
+    gc();
+    assert(CURRENT_HEADER(t1)->age == 3);
+    assert(is_pointer_to_space(t1,&gc_heaps[survivorfromg]));
+
+    //开始老年代gc
+    gc();
+    //但是t1 依然指向的新生代区 root也 没有改变 但是老年代备份了一个
+    assert(rs_index == 1);
+
+
+
 }
 void main(){
     // 测试不加入 root的时候  会自动进行gc复制
     //看看gc复制的结果是否符合预期
+    printf("\n*******************测试添加root 后的gc *************");
     test_auto_gc();
-//    clear();
+    clear();
+    printf("*********************test auto_gc pass *************\n\n");
 
-//     test_add_root_gc();
+    printf("\n*******************测试添加root 后的gc *************\n");
+    test_add_root_gc();
+    clear();
+    printf("*********************test auto_gc pass *************\n\n");
+
+    printf("\n*******************测试添加root 后的gc *************\n");
+    test_promote();
+    printf("*********************test auto_gc pass *************\n\n");
+
+
 }

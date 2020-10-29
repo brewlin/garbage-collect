@@ -11,7 +11,6 @@
 
 //将申请的内存 加入 root 管理
 void  add_roots(void* ptr);
-void  gc_mark_range(void *start, void *end);
 //在gc的时候判断该对象是否在old堆上分配的
 int   is_pointer_to_old_space(void* ptr);
 

@@ -35,13 +35,13 @@ void promote(void *ptr)
     //标志已经复制过了 forwarded = true
     FL_SET(obj,FL_COPIED);
 
-    //for child: obj
-    for (void *p = ptr; p < ptr + obj->size  ; p++) {
+    //for child: obj 这里是为了检查老年代对象是否有对象依然指向新生代中
+    for (void *p = ptr + 1; p < ptr + obj->size  ; p++) {
 
         Header* hdr;
         //解引用 如果该内存依然是指向的from，且有forwarding 则需要改了
         void *ptr = *(void**)p;
-        //查看该引用是否存在于 新生代
+        //查看该引用是否存在于 新生代 这里的get_header 只会去查找 新生代和两个幸存代
         if (!(hdr = get_header(ptr))) {
             continue;
         }
@@ -238,14 +238,14 @@ void  gc(void)
     //递归进行复制  从 from  => to
     for(int i = 0;i < root_used;i++){
         void* forwarded = gc_copy(roots[i].start);
-        //判断 新对象 是否属于老年代堆
+
+        //只有新生代的对象才会更新root ，如果该对象被晋升为老年代则不更新root
         if(!is_pointer_to_old_space(forwarded)){
             *(Header**)roots[i].optr = forwarded;
             //将root 所有的执行换到 to上
             roots[i].start = forwarded;
             roots[i].end   = forwarded + CURRENT_HEADER(forwarded)->size;
         }
-        //晋升为老年代的对象不用 更新
     }
 
     //更新跨代引用
