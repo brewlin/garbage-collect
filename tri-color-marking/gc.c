@@ -4,8 +4,29 @@
 Header *free_list = NULL;
 GC_Heap gc_heaps[HEAP_LIMIT];
 size_t gc_heaps_used = 0;
-int auto_gc = 1;
+int auto_gc  = 1;
+int auto_grow  = 1;
+int gc_phase = GC_ROOT_SCAN;
+int max_mark = 0;
+int max_sweep = 0;
 
+
+void gc_init(size_t heap_size,size_t count)
+{
+    gc_heaps_used = count;
+    for (size_t i = 0; i < count; i++){
+        //使用sbrk 向操作系统申请大内存块
+        void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+        if(p == NULL)exit(-1);
+
+        gc_heaps[i].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
+        gc_heaps[i].size = heap_size;
+        gc_heaps[i].slot->size = heap_size;
+        gc_heaps[i].slot->next_free = NULL;
+        gc_free((Header*)p + 1);
+    }
+
+}
 /**
  * 增加堆
  **/
@@ -121,11 +142,12 @@ alloc:
         gc();
         do_gc = 1;
         goto alloc;
+    }else if(auto_grow){
+        //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
+        p = grow(req_size);
+        if(p != NULL) goto alloc;
     }
-    //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-    else if ((p = grow(req_size)) != NULL){
-        goto alloc;
-    }
+    printf("分配失败，内存不够\n");
     return NULL;
 
 }
@@ -174,7 +196,7 @@ void    gc_free(void *ptr)
         /* join before free block */
         hit->next_free = target;
     }
-    free_list = hit;
+//    free_list = hit;
     target->flags = 0;
 }
 

@@ -1,9 +1,13 @@
 #include "gc.h"
+#include "stack.h"
+
+Stack stack;
 
 
 //保存了所有申请的对象
 root roots[ROOT_RANGES_LIMIT];
 size_t root_used = 0;
+int sweeping = 0;
 
 /**
  * 对该对象进行标记
@@ -35,38 +39,94 @@ void gc_mark(void * ptr)
 
     /* marking */
     FL_SET(hdr, FL_MARK);
-//    printf("mark ptr : %p, header : %p\n", ptr, hdr);
-    //进行子节点递归 标记
-    gc_mark_range((void *)(hdr+1), (void *)NEXT_HEADER(hdr));
+    //进行子节点 递归
+    for (void* p = ptr; p < (void*)NEXT_HEADER(hdr); p++) {
+        //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+        gc_mark(*(void **)p);
+    }
+
 }
+
 /**
- * 遍历root 进行标记
+ * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
  * @param start
  * @param end
  */
-void  gc_mark_range(void *start, void *end)
+void     add_roots(void* obj)
 {
-    void *p;
-
-    //start 表示当前对象 需要释放
-    gc_mark(start);
-    //可能申请的内存 里面又包含了其他内存
-    for (p = start+1; p < end; p++) {
-         //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-         gc_mark(*(void **)p);
+    roots[root_used] = obj;
+    root_used++;
+    if (root_used >= ROOT_RANGES_LIMIT) {
+        fputs("Root OverFlow", stderr);
+        abort();
     }
+}
+
+/**
+ * root 扫描阶段 将所有的root可达对象加入队列中
+ */
+void root_scan_phase()
+{
+    //垃圾回收前 先从 root 开始 进行递归标记
+    for(int i = 0;i < root_used;i++)
+    {
+        void* ptr = roots[i];
+        GC_Heap *gh;
+        Header *hdr;
+        if (!(gh = is_pointer_to_heap(ptr))) continue;
+        if (!(hdr = get_header(gh, ptr)))    continue;
+        if (!FL_TEST(hdr, FL_ALLOC))         continue;
+        if (FL_TEST(hdr, FL_MARK))           continue;
+
+        //标记为灰色 并入栈
+        FL_SET(hdr, FL_MARK);
+        push(&stack,ptr);
+    }
+    gc_phase = GC_MARK;
+
+}
+/**
+ * 标记阶段
+ */
+void mark_phase()
+{
+    //1 全部将灰色标记完了在进行下一个清除阶段
+    //2 未全部标记完则继续进行标记
+
+    int scan_root = 0;
+    for (int i = 0; i < max_mark; ++i) {
+        //如果为空就继续去扫描一下root  看看在gc休息期间是否有新的没有进行标记
+        if(empty(&stack)){
+            //如果扫描过了root，但是依然没有新增灰色对象 则结束标记
+            if(scan_root >= 1) {
+                gc_phase = GC_SWEEP;
+                break;
+            }
+            root_scan_phase();
+            scan_root++;
+            continue;
+        }
+        void* obj = pop(&stack);
+        Header* hdr = CURRENT_HEADER(obj);
+        //递归对child 进行标记
+        for (void* p = obj; p < (void*)NEXT_HEADER(hdr); p++) {
+            //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+            gc_mark(*(void **)p);
+        }
+    }
+
 }
 /**
  * 清除 未标记内存 进行回收利用
  */
-void     gc_sweep(void)
+void sweep_phase(void)
 {
     size_t i;
     Header *p, *pend, *pnext;
 
     //遍历所有的堆内存
     //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
-    for (i = 0; i < gc_heaps_used; i++) {
+    for (i = sweeping; i < gc_heaps_used && i < max_sweep + sweeping; i++) {
         //pend 堆内存结束为止
         pend = (Header *)(((size_t)gc_heaps[i].slot) + gc_heaps[i].size);
         //堆的起始为止 因为堆的内存可能被分成了很多份，所以需要遍历该堆的内存
@@ -87,31 +147,27 @@ void     gc_sweep(void)
             }
         }
     }
-}
-/**
- * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
- * @param start
- * @param end
- */
-void     add_roots(void* obj)
-{
-    roots[root_used].start = obj;
-    roots[root_used].end = obj + CURRENT_HEADER(obj)->size;
-    root_used++;
 
-    if (root_used >= ROOT_RANGES_LIMIT) {
-        fputs("Root OverFlow", stderr);
-        abort();
+    //如果堆扫描完则 切换到root扫描
+    sweeping = i;
+    if(i == gc_heaps_used){
+        sweeping = 0;
+        gc_phase = GC_ROOT_SCAN;
     }
 }
 void  gc(void)
 {
-    //垃圾回收前 先从 root 开始 进行递归标记
-    for(int i = 0;i < root_used;i++){
-        gc_mark_range(roots[i].start, roots[i].end);
+    printf("执行gc\n");
+    switch(gc_phase){
+        case GC_ROOT_SCAN:
+            root_scan_phase();
+            return;
+        case GC_MARK:
+            mark_phase();
+            return;
+        case GC_SWEEP:
+            sweep_phase();
     }
-    //标记完成后 在进行 清除 对于没有标记过的进行回收
-    gc_sweep();
 }
 
 /**
@@ -129,7 +185,8 @@ void write_barrier(void *obj_ptr,void *field,void* new_obj_ptr)
     //新对象没有被标记过 将白色涂成灰色
     if(!IS_MARKED(new_obj)){
         FL_SET(new_obj,FL_MARK);
-        //push new_obj 到标记栈里面
+        push(&stack,new_obj_ptr);
+    }
     //obj->field = new_obj
     *(void **)field = new_obj_ptr;
 

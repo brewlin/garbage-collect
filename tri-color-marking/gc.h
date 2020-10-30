@@ -57,13 +57,14 @@ typedef struct gc_heap {
 #define DEBUG(exp) exp
 //#define DEBUG(exp)
 
-
+//gc 初始化 堆大小 堆个数
+void gc_init(size_t heap_size,size_t count);
 //回收内存
 void gc_free(void *ptr);
 //从堆缓存中申请一份内存
 void * gc_malloc(size_t req_size);
 //执行gc 垃圾回收
-void gc(void);
+void     add_roots(void * obj);
 
 //定位内存实际所在的堆
 //如果没有找到，说明该内存非 堆内存池中申请的内存
@@ -72,22 +73,31 @@ GC_Heap* is_pointer_to_heap(void *ptr);
 // 因为如果ptr 刚好不在 header+1处的话 无法通过(ptr- sizeof(Header)) 来获取header地址
 Header*  get_header(GC_Heap *gh, void *ptr);
 
-void gc(void);
 //回收链表，挂着空闲链表
 extern Header *free_list;
 extern GC_Heap gc_heaps[HEAP_LIMIT];
 extern size_t gc_heaps_used;
 extern int auto_gc;
+extern int auto_grow;
+//三色标记法中 gc处于哪个阶段
+extern int gc_phase;
+extern int max_mark;
+extern int max_sweep;
+extern int sweeping;
 
-/****** 标记清除法实现-------------*/
+#define GC_ROOT_SCAN 1
+#define GC_MARK      2
+#define GC_SWEEP     3
+
+/****** 三色标记清除法实现-------------*/
+void gc(void);
 void gc_mark(void * ptr);
-void  gc_mark_range(void *start, void *end);
-void     gc_sweep(void);
-void     add_roots(void * obj);
-typedef struct root_range {
-    void *start;
-    void *end;
-}root;
+void root_scan_phase(void);
+void mark_phase(void);
+void sweep_phase(void);
+void write_barrier(void *obj_ptr,void *field,void* new_obj_ptr);
+typedef void* root;
 extern root roots[ROOT_RANGES_LIMIT];
+
 extern size_t root_used;
 #endif
