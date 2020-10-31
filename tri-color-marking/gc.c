@@ -127,6 +127,8 @@ alloc:
             p->size = req_size;
             free_list = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
+            //TODO: 在三色标记法中 如果新申请的内存处在清除阶段后面的内存 
+            // 则需要手动打上标记否则会导致 刚申请的内存被多阶段清除回收了
             FL_SET(p, FL_ALLOC);
             printf("%p\n",p);
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了

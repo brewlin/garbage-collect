@@ -94,65 +94,80 @@ void test_gc(){
 }
 
 /**
- * 对引用进行测试
+ * 测试写屏障
  */
-void test_reference_gc()
+void test_write_barrier()
 {
-    printf("-----------测试引用gc         ------------\n");
+    printf("-----------测试写屏障         ------------\n");
     printf("-----------***************------------\n");
+    //测试的时候关闭自动扩充堆
+    auto_grow = 0;
+    auto_gc   = 1;
+    //每个堆 可以存储1个Obj
+    gc_init(4 * (sizeof(Obj) + HEADER_SIZE),1);
+    //一次扫描3个堆
+    max_sweep = 1;
+    //一次标记1个对象
+    max_mark  = 1;
 
-
-    Obj* p   = gc_malloc(sizeof(Obj));
-    p->v     = 10;
-    p->left  = gc_malloc(sizeof(Obj));
-    p->right = gc_malloc(sizeof(Obj));
-    p->left->v = 11;
-    p->right->v = 12;
-
-    //加入root 即使left right 没有加入 但是他们作为 p的子节点引用 会被标记
-    add_roots(p);
+    Obj* p1 = gc_malloc(sizeof(Obj));
+    add_roots(p1);
+    //p1 被标记
     gc();
-    assert(p->v == 10);
-    assert(p->left->v == 11);
-    assert(p->right->v == 12);
+    assert(gc_phase == GC_MARK);
 
-    p   = gc_malloc(sizeof(Obj));
-    p->v     = 10;
-    p->left  = gc_malloc(sizeof(Obj));
-    p->left->v = 11;
-    Obj* left = p->left;
-    //没有加入root 会被清除
     gc();
-    assert(p->v == 0);
-    assert(p->left == NULL);
-    //子节点也会被清除
-    assert(left->v == 0 );
+    assert(gc_phase == GC_SWEEP);
 
+    //接下来就是清除阶段了，但是我在这个阶段的时候 更新了原先的引用
+    Obj* p2 = gc_malloc(sizeof(Obj));
+    p2->v = 22;
+    write_barrier(p1,&p1->left,p2);
+
+    //清除完毕
+    gc();
+    assert(gc_phase == GC_ROOT_SCAN);
+    assert(p1->left);
+    assert(p2->v == 22);
 
     printf("-----------   passing     ------------\n");
     clear();
 }
-/**
- * 测试的时候需要关闭 自动gc
- */
-void test_malloc_speed(){
-    auto_gc = 0;
-    time_t start,end;
-    start = time(NULL);
-//    for (int i = 0; i < 1000; ++i) {
-//        int size = rand()%90;
-//        void *p = gc_malloc(size);
-//    }
-    for (int i = 0; i < 10000; ++i) {
-        int size = rand()%90;
-        void *p = gc_malloc(size);
-    }
-    void *p = gc_malloc(24);
-    p = gc_malloc(24);
-    p = gc_malloc(24);
+void test_write_barrier2()
+{
+    printf("-----------测试未加入root写屏障         ------------\n");
+    printf("-----------***************------------\n");
+    //测试的时候关闭自动扩充堆
+    auto_grow = 0;
+    auto_gc   = 1;
+    //每个堆 可以存储4个Obj
+    gc_init(4 * (sizeof(Obj) + HEADER_SIZE),1);
+    //一次扫描3个堆
+    max_sweep = 1;
+    //一次标记1个对象
+    max_mark  = 1;
+
+    Obj* p1 = gc_malloc(sizeof(Obj));
+    //p1 被标记
     gc();
-    end = time(NULL);
-    printf("execution seconds:%f\n",difftime(end,start));
+    assert(gc_phase == GC_MARK);
+
+    gc();
+    assert(gc_phase == GC_SWEEP);
+
+    //接下来就是清除阶段了，但是我在这个阶段的时候 更新了原先的引用
+    Obj* p2 = gc_malloc(sizeof(Obj));
+    p2->v = 22;
+    write_barrier(p1,&p1->left,p2);
+
+    //清除完毕
+    gc();
+    assert(gc_phase == GC_ROOT_SCAN);
+    assert(p1->left == NULL);
+    assert(p2->v == 0);
+
+    printf("-----------   passing     ------------\n");
+    clear();
 }
 int  main(int argc, char **argv)
 {
@@ -161,13 +176,15 @@ int  main(int argc, char **argv)
     test_malloc_free();
     clear();
     //测试gc
-    test_gc(8);
+    test_gc();
     clear();
-    //对象引用测试
-    test_reference_gc();
+    //测试写屏障
+    test_write_barrier();
     clear();
+    //测试未加入root写屏障
+    test_write_barrier2();
+    clear();
+    
 
-    //TODO: gc problem
-//    test_malloc_speed();
     return 0;
 }

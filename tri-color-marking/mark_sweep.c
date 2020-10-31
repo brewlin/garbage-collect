@@ -114,6 +114,10 @@ void mark_phase()
             gc_mark(*(void **)p);
         }
     }
+    //所有gc扫描完以后 只有空栈的话 说明标记完毕 需要进行清扫
+    if(empty(&stack)){
+        gc_phase = GC_SWEEP;
+    }
 
 }
 /**
@@ -182,10 +186,12 @@ void write_barrier(void *obj_ptr,void *field,void* new_obj_ptr)
 
     Header* obj     = CURRENT_HEADER(obj_ptr);
     Header* new_obj = CURRENT_HEADER(new_obj_ptr);
-    //新对象没有被标记过 将白色涂成灰色
-    if(!IS_MARKED(new_obj)){
-        FL_SET(new_obj,FL_MARK);
-        push(&stack,new_obj_ptr);
+    //如果老对象已经被标记了 就要检查新对象是否标记了
+    if(IS_MARKED(obj)){
+        if(!IS_MARKED(new_obj)){
+            FL_SET(new_obj,FL_MARK);
+            push(&stack,new_obj_ptr);
+        }
     }
     //obj->field = new_obj
     *(void **)field = new_obj_ptr;

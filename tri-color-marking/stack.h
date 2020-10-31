@@ -8,8 +8,8 @@
 #ifndef GC_LEARNING_STACK_H
 #define GC_LEARNING_STACK_H
 
-#include <malloc.h>
-
+#include <stdio.h>
+#include <stdlib.h>
 typedef struct link_list
 {
     void*             value;
