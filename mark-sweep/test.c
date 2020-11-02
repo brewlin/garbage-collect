@@ -135,7 +135,7 @@ void test_malloc_speed(){
 //        int size = rand()%90;
 //        void *p = gc_malloc(size);
 //    }
-    for (int i = 0; i < 10000; ++i) {
+    for (int i = 0; i < 1000; ++i) {
         int size = rand()%90;
         void *p = gc_malloc(size);
     }
@@ -165,7 +165,6 @@ int  main(int argc, char **argv)
     test_reference_gc();
     clear();
 
-    //TODO: gc problem
-//    test_malloc_speed();
+    test_malloc_speed();
     return 0;
 }

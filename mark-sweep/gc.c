@@ -59,7 +59,14 @@ Header* grow(size_t req_size)
     printf("%p\n",up);
     //因为gc_free 是公用的，所以需要 将实际 mem 地址传入
     //新申请的堆不需要 进行gc 只需要挂载到 free_list 链表上就行
-    gc_free((void *)(up+1));
+    if(free_list == NULL){
+        memset(up +  1,0,up->size);
+        free_list = up;
+        up->flags = 0;
+        return;
+    }else{
+        gc_free((void *)(up+1));
+    }
     //上面执行gc的时候，其实已经将free_list的表头改变，
     // 所以free_list->next_free 可能就是 up
     return free_list;
@@ -84,9 +91,9 @@ alloc:
     //死循环 遍历
     for (p = prevp; p; prevp = p, p = p->next_free) {
         //堆的内存足够
-        if (p->size >= req_size) {
+        if (p->size >= req_size + HEADER_SIZE) {
             //刚好满足
-            if (p->size == req_size)
+            if (p->size == req_size + HEADER_SIZE)
                 /* 刚好满足 */
                 // 从空闲列表上 移除当前的 堆，因为申请的大小刚好把堆消耗完了
                 if(p == prevp)
@@ -123,7 +130,7 @@ alloc:
         goto alloc;
     }
     //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-    else if ((p = grow(req_size)) != NULL){
+    else if ((p = grow(req_size + HEADER_SIZE)) != NULL){
         goto alloc;
     }
     return NULL;
@@ -145,12 +152,13 @@ void    gc_free(void *ptr)
     if(free_list == NULL){
         free_list = target;
         target->flags = 0;
+        target->size += HEADER_SIZE;
         return;
     }
     /* search join point of target to free_list */
     for (hit = free_list; !(target > hit && target < hit->next_free); hit = hit->next_free)
         /* heap end? And hit(search)? */
-        if (hit >= hit->next_free && (target > hit || target < hit->next_free))
+        if (hit >= hit->next_free && (target > hit || target < hit->next_free || hit->next_free == NULL))
             break;
 
     // 1. 在扩充堆的时候 这个target 的下个header 指向的是非法空间
@@ -174,7 +182,7 @@ void    gc_free(void *ptr)
         /* join before free block */
         hit->next_free = target;
     }
-    free_list = hit;
+//    free_list = hit;
     target->flags = 0;
 }
 

@@ -50,7 +50,7 @@ typedef struct gc_heap {
 #define FL_SET(x, f) (((Header *)x)->flags |= f)
 #define FL_UNSET(x, f) (((Header *)x)->flags &= ~(f))
 #define FL_TEST(x, f) (((Header *)x)->flags & f)
-#define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_MARK))
+#define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_hit = free_listTEST(x, FL_MARK))
 
 #define ROOT_RANGES_LIMIT 100000
 

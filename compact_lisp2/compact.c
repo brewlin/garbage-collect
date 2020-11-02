@@ -150,7 +150,7 @@ void move_obj()
         //pend 堆内存结束为止
         pend = (Header *)(((size_t)gc_heaps[i].slot) + gc_heaps[i].size);
 
-        //TODO: 这里只有一个堆，所以空闲链表直接从内存循环算起了
+        //TODO: 这里只有一个堆，所以空闲链表直接从内存开始处算起
         free_p = gc_heaps[i].slot;
         total = gc_heaps[i].size;
         //堆的起始为止 因为堆的内存可能被分成了很多份，所以需要遍历该堆的内存
