@@ -1,9 +1,5 @@
-#include "../header/gc.h"
+#include "../../header/gc.h"
 
-
-//保存了所有申请的对象
-root roots[ROOT_RANGES_LIMIT];
-size_t root_used = 0;
 
 /**
  * 对该对象进行标记
@@ -35,25 +31,11 @@ void gc_mark(void * ptr)
 
     /* marking */
     FL_SET(hdr, FL_MARK);
-//    printf("mark ptr : %p, header : %p\n", ptr, hdr);
-    //进行子节点递归 标记
-    gc_mark_range((void *)(hdr+1), (void *)NEXT_HEADER(hdr));
-}
-/**
- * 遍历root 进行标记
- * @param start
- * @param end
- */
-void  gc_mark_range(void *start, void *end)
-{
-    void *p;
 
-    //start 表示当前对象 需要释放
-    gc_mark(start);
-    //可能申请的内存 里面又包含了其他内存
-    for (p = start+1; p < end; p++) {
-         //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-         gc_mark(*(void **)p);
+    //进行child 节点递归 标记
+    for (void* p = ptr; p < (void*)NEXT_HEADER(hdr); p++) {
+        //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+        gc_mark(*(void **)p);
     }
 }
 /**
@@ -89,27 +71,13 @@ void     gc_sweep(void)
     }
 }
 /**
- * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
- * @param start
- * @param end
+ * 标记清除算法的gc实现
  */
-void     add_roots(void* obj)
-{
-    roots[root_used].start = obj;
-    roots[root_used].end = obj + CURRENT_HEADER(obj)->size;
-    root_used++;
-
-    if (root_used >= ROOT_RANGES_LIMIT) {
-        fputs("Root OverFlow", stderr);
-        abort();
-    }
-}
 void  gc(void)
 {
     //垃圾回收前 先从 root 开始 进行递归标记
-    for(int i = 0;i < root_used;i++){
-        gc_mark_range(roots[i].start, roots[i].end);
-    }
+    for(int i = 0;i < root_used;i++)
+        gc_mark(roots[i].ptr);
     //标记完成后 在进行 清除 对于没有标记过的进行回收
     gc_sweep();
 }

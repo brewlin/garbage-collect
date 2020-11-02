@@ -1,11 +1,32 @@
 #include "gc.h"
+#include <time.h>
 
 //回收链表，挂着空闲链表
-Header *free_list = NULL;
+Header* free_list = NULL;
 GC_Heap gc_heaps[HEAP_LIMIT];
-size_t gc_heaps_used = 0;
-int auto_gc = 1;
+size_t  gc_heaps_used = 0;
+root    roots[ROOT_RANGES_LIMIT]; //根
+size_t  root_used = 0;
+int     auto_gc = 1;
+int     auto_grow = 1;
 
+
+/**
+ * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
+ * @param start
+ * @param end
+ */
+void add_roots(void* o_ptr)
+{
+    void *ptr = *(void**)o_ptr;
+    roots[root_used].ptr = ptr;
+    roots[root_used].optr = o_ptr;
+    root_used++;
+    if (root_used >= ROOT_RANGES_LIMIT) {
+        fputs("Root OverFlow", stderr);
+        abort();
+    }
+}
 /**
  * 增加堆
  **/
@@ -46,7 +67,7 @@ Header* add_heap(size_t req_size)
 /**
  * 扩充堆大小
  **/
-Header* grow(size_t req_size)
+Header* gc_grow(size_t req_size)
 {
     Header *cp, *up;
 
@@ -63,7 +84,7 @@ Header* grow(size_t req_size)
         memset(up +  1,0,up->size);
         free_list = up;
         up->flags = 0;
-        return;
+        return free_list;
     }else{
         gc_free((void *)(up+1));
     }
@@ -130,7 +151,7 @@ alloc:
         goto alloc;
     }
     //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-    else if ((p = grow(req_size + HEADER_SIZE)) != NULL){
+    else if ((p = gc_grow(req_size + HEADER_SIZE)) != NULL){
         goto alloc;
     }
     return NULL;
@@ -185,27 +206,32 @@ void    gc_free(void *ptr)
     target->flags = 0;
 }
 
-//记录目前的堆size
-// size_t   root_ranges_used = 0;
-GC_Heap* hit_cache = NULL;
 
+/**
+ * 判断指针是否属于某个堆
+ * 辨别指针 | 非指针
+ * 保守式gc来说 会有一定误差
+ * @param ptr
+ * @return
+ */
 GC_Heap* is_pointer_to_heap(void *ptr)
 {
     size_t i;
 
-    if (hit_cache &&
-        ((void *)hit_cache->slot) <= ptr &&
-        (size_t)ptr < (((size_t)hit_cache->slot) + hit_cache->size))
-        return hit_cache;
     for (i = 0; i < gc_heaps_used;  i++) {
         if ((((void *)gc_heaps[i].slot) <= ptr) &&
             ((size_t)ptr < (((size_t)gc_heaps[i].slot) + HEADER_SIZE +  gc_heaps[i].size))) {
-            hit_cache = &gc_heaps[i];
             return &gc_heaps[i];
         }
     }
     return NULL;
 }
+/**
+ * 获取该指针的header头 并再次检查是否是指针
+ * @param gh
+ * @param ptr
+ * @return
+ */
 Header*  get_header(GC_Heap *gh, void *ptr)
 {
     Header *p, *pend, *pnext;

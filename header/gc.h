@@ -30,8 +30,16 @@ typedef struct gc_heap {
     Header *slot;
     size_t size;
 } GC_Heap;
+/**
+ * 根
+ */
+typedef struct root_{
+    void *ptr;  //这里存储了 用户方变量地址 因为复制完成后需要替换用户态的变量地址
+    void *optr;
+}root;
 
-#define TINY_HEAP_SIZE 0x4000
+/* marco */
+#define TINY_HEAP_SIZE 4 * 1024
 //计算指针 所占内存大小
 #define PTRSIZE ((size_t) sizeof(void *))
 #define HEADER_SIZE ((size_t) sizeof(Header))
@@ -44,6 +52,9 @@ typedef struct gc_heap {
 #define NEXT_HEADER(x) ((Header *)((size_t)(x+1) + x->size))
 #define CURRENT_HEADER(x) ((Header *)x - 1)
 
+#define ROOT_RANGES_LIMIT 100000
+#define DEBUG(exp) exp
+
 /* flags */
 #define FL_ALLOC 0x1
 #define FL_MARK 0x2
@@ -52,42 +63,31 @@ typedef struct gc_heap {
 #define FL_TEST(x, f) (((Header *)x)->flags & f)
 #define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_hit = free_listTEST(x, FL_MARK))
 
-#define ROOT_RANGES_LIMIT 100000
-
-#define DEBUG(exp) exp
-//#define DEBUG(exp)
-
-
-//回收内存
-void gc_free(void *ptr);
-//从堆缓存中申请一份内存
-void * gc_malloc(size_t req_size);
-//执行gc 垃圾回收
-void gc(void);
-
-//定位内存实际所在的堆
-//如果没有找到，说明该内存非 堆内存池中申请的内存
-GC_Heap* is_pointer_to_heap(void *ptr);
+/* public api */
+void     gc(void);                     //执行gc 垃圾回收
+void     gc_free(void *ptr);           //回收内存
+void*    gc_malloc(size_t req_size);   //从堆缓存中申请一份内存
+Header*  gc_grow(size_t req_size);     //某些算法在内存不够的时候会扩充堆
+GC_Heap* is_pointer_to_heap(void *ptr);//获取指针对应的堆首地址
 //安全的获取header头，可以通过内存段来定位该header
 // 因为如果ptr 刚好不在 header+1处的话 无法通过(ptr- sizeof(Header)) 来获取header地址
 Header*  get_header(GC_Heap *gh, void *ptr);
+void     add_roots(void* o_ptr);
+void     add_heaps(size_t req_size);
 
-void gc(void);
-//回收链表，挂着空闲链表
+
+/* global variable */
 extern Header *free_list;
 extern GC_Heap gc_heaps[HEAP_LIMIT];
 extern size_t gc_heaps_used;
 extern int auto_gc;
+extern int auto_grow;
 
-/****** 标记清除法实现-------------*/
-void gc_mark(void * ptr);
-void  gc_mark_range(void *start, void *end);
-void     gc_sweep(void);
-void     add_roots(void * obj);
-typedef struct root_range {
-    void *start;
-    void *end;
-}root;
+
+
+
+
+
 extern root roots[ROOT_RANGES_LIMIT];
 extern size_t root_used;
 #endif
