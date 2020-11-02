@@ -163,7 +163,6 @@ void    gc_free(void *ptr)
         /* join before free block */
         hit->next_free = target;
     }
-    free_list = hit;
     target->ref = 0;
 }
 

@@ -203,7 +203,7 @@ void    gc_free(void *ptr)
         /* join before free block */
         hit->next_free = target;
     }
-    free_list[0] = hit;
+//    free_list[0] = hit;
     target->flags = 0;
 }
 
