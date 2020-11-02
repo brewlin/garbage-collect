@@ -18,6 +18,7 @@ typedef struct header {
     size_t flags;
     size_t size;
     struct header *next_free;
+    struct header *forwarding;
 } Header;
 
 /**
@@ -56,15 +57,18 @@ typedef struct root_{
 #define DEBUG(exp) exp
 
 /* flags */
-#define FL_ALLOC 0x1
-#define FL_MARK 0x2
+#define FL_ALLOC  0x1
+#define FL_MARK   0x2
+#define FL_COPIED 0x4
 #define FL_SET(x, f) (((Header *)x)->flags |= f)
 #define FL_UNSET(x, f) (((Header *)x)->flags &= ~(f))
 #define FL_TEST(x, f) (((Header *)x)->flags & f)
 #define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_hit = free_listTEST(x, FL_MARK))
+#define IS_COPIED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_COPIED))
 
 /* public api */
 void     gc(void);                     //执行gc 垃圾回收
+void     gc_init(size_t heap_size);
 void     gc_free(void *ptr);           //回收内存
 void*    gc_malloc(size_t req_size);   //从堆缓存中申请一份内存
 Header*  gc_grow(size_t req_size);     //某些算法在内存不够的时候会扩充堆
