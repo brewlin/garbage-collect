@@ -1,6 +1,4 @@
 #include "gc.h"
-#include "copying.h"
-
 typedef struct t{
     int       value;
     struct t* next;
@@ -9,8 +7,7 @@ int clear(){
     free_list = NULL;
 
     for (int j = 0; j <= root_used ; ++j){
-        roots[j].start = NULL;
-        roots[j].end = NULL;
+        roots[j].ptr = NULL;
     }
     root_used = 0;
 }

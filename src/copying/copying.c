@@ -1,12 +1,54 @@
 #include "gc.h"
-#include "copying.h"
 
-//保存了所有申请的对象
-root roots[ROOT_RANGES_LIMIT];
-size_t root_used = 0;
+
 //每次复制前将 该指针 指向 to的首地址
 void* free_p;
+GC_Heap from;
+GC_Heap to;
 
+/**
+ * 增加堆
+ **/
+void gc_init(size_t req_size)
+{
+    auto_gc   = 1;
+    //关闭自动扩充堆
+    auto_grow = 0;
+    //使用sbrk 向操作系统申请大内存块
+    void* from_p = sbrk(req_size + PTRSIZE + HEADER_SIZE);
+    from.slot  = (Header *)ALIGN((size_t)from_p, PTRSIZE);
+    from.slot->next_free = NULL;
+    from.slot->size = req_size;
+    from.size       = req_size;
+    gc_free((void*)(from.slot + 1));
+    DEBUG(printf("扩堆内存:%ld ptr:%p\n",req_size,from_p));
+
+    //使用sbrk 向操作系统申请大内存块
+    void* to_p = sbrk(req_size + PTRSIZE + HEADER_SIZE);
+    to.slot  = (Header *)ALIGN((size_t)to_p, PTRSIZE);
+    to.slot->next_free = NULL;
+    to.slot->size = req_size;
+    to.size = req_size;
+}
+//重from堆 检查该指针
+Header*  get_header_by_from(void *ptr)
+{
+    size_t i;
+    Header* from_ptr = from.slot;
+    if ((((void *)from_ptr) > ptr) && ((((void*)from_ptr) + HEADER_SIZE +  from.size)) <= ptr) {
+        return NULL;
+    }
+    Header *p, *pend, *pnext;
+
+    pend = (Header *)(((void*)(from_ptr+1)) + from.size);
+    for (p = from_ptr; p < pend; p = pnext) {
+        pnext = NEXT_HEADER(p);
+        if ((void *)(p+1) <= ptr && ptr < (void *)pnext) {
+            return p;
+        }
+    }
+    return NULL;
+}
 /**
  * 对该对象进行标记
  * 并进行子对象标记
@@ -17,12 +59,9 @@ void* gc_copy(void * ptr)
 {
     Header *hdr;
 
-    if (!(hdr = get_header(ptr))) {
-//      printf("not find header\n");
-      return NULL;
-    }
+    if (!(hdr = get_header_by_from(ptr))) return NULL;
     //没有复制过  0
-    if(!hdr->flags){
+    if(!IS_COPIED(hdr)){
         //计算复制后的指针
         Header *forwarding = (Header*)free_p;
         //在准备分配前的总空间
@@ -30,6 +69,7 @@ void* gc_copy(void * ptr)
         //分配一份内存 将源对象拷贝过来
         memcpy(forwarding, hdr, hdr->size+HEADER_SIZE);
         //标记为已拷贝
+        FL_SET(hdr,FL_COPIED);
         hdr->flags = 1;
         //free 指向下一个 body
         free_p += (HEADER_SIZE + hdr->size);
@@ -39,52 +79,18 @@ void* gc_copy(void * ptr)
         hdr->forwarding = forwarding;
 
         printf("需要执行拷贝 ptr:%p hdr:%p  after:%p\n",ptr,hdr,forwarding);
+
         //从forwarding 指向的空间开始递归
-        gc_copy_range((void *)(forwarding+1) + 1, (void *)NEXT_HEADER(forwarding));
+        for (void* p = (void*)(forwarding+1); p < (void*)NEXT_HEADER(forwarding); p++) {
+            //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+            //递归进行 引用的拷贝
+            gc_copy(*(void **)p);
+        }
         //返回body
         return forwarding + 1;
     }
     //forwarding 是带有header头部的，返回body即可
     return hdr->forwarding+1;
-}
-/**
- * 遍历root 进行标记
- * @param start
- * @param end
- */
-void*  gc_copy_range(void *start, void *end)
-{
-    void *p;
-
-    void* new_obj = gc_copy(start);
-    //可能申请的内存 里面又包含了其他内存
-    for (p = start + 1; p < end; p++) {
-         //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-         //递归进行 引用的拷贝
-         gc_copy(*(void **)p);
-    }
-    //返回 body
-    return new_obj;
-}
-/**
- * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
- * @param start
- * @param end
- */
-void     add_roots(void* o_ptr)
-{
-    void *ptr = *(void**)o_ptr;
-
-    Header* hdr = (Header*)ptr - 1;
-    roots[root_used].start = ptr;
-    roots[root_used].end = ptr + hdr->size;
-    roots[root_used].optr = o_ptr;
-    root_used++;
-
-    if (root_used >= ROOT_RANGES_LIMIT) {
-        fputs("Root OverFlow", stderr);
-        abort();
-    }
 }
 /**
  * 拷贝引用
@@ -95,16 +101,16 @@ void copy_reference()
     //遍历所有对象
     for(int i = 0; i < root_used; i ++)
     {
-        void* start =  roots[i].start;
-        void* end   =  roots[i].end;
+        void* start =  roots[i].ptr;
+        void* end   =  (void*)NEXT_HEADER(CURRENT_HEADER(start));
 
         //可能申请的内存 里面又包含了其他内存
-        for (void *p = start; p < end; p++) {
+        for (void *p = start; p < end;  p++) {
 
             Header* hdr;
             //解引用 如果该内存依然是指向的from，且有forwarding 则需要改了
             void *ptr = *(void**)p;
-            if (!(hdr = get_header(ptr))) {
+            if (!(hdr = get_header_by_from(ptr))) {
                 continue;
             }
             if(hdr->forwarding){
@@ -125,12 +131,10 @@ void  gc(void)
 
     //递归进行复制  从 from  => to
     for(int i = 0;i < root_used;i++){
-        void* forwarded = gc_copy_range(roots[i].start, roots[i].end);
-
+        void* forwarded = gc_copy(roots[i].ptr);
         *(Header**)roots[i].optr = forwarded;
         //将root 所有的执行换到 to上
-        roots[i].start = forwarded;
-        roots[i].end   = forwarded + CURRENT_HEADER(forwarded)->size;
+        roots[i].ptr = forwarded;
     }
     copy_reference();
 

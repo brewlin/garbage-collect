@@ -131,6 +131,7 @@ alloc:
 //                这里就是从当前堆的堆首  跳转到末尾申请的那个堆
 //                p = NEXT_HEADER(p);
                 prevp = (void*)prevp + HEADER_SIZE + req_size;
+                memcpy(prevp,p,HEADER_SIZE);
                 prevp->size = p->size - (req_size + HEADER_SIZE);
             }
             p->size = req_size;

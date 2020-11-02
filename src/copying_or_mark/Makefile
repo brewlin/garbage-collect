@@ -9,5 +9,4 @@ clean:
 	rm -rf *.o
 
 gc: $(SRCS)
-	$(CC) -g -o gc $(SRCS)
-
+	$(CC) -g -o gc $(SRCS) ../../header/gc.c -I ../../header

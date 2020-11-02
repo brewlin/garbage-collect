@@ -1,11 +1,66 @@
 #include "gc.h"
-#include "copying.h"
+#include "header.h"
 
-//保存了所有申请的对象
-root roots[ROOT_RANGES_LIMIT];
-size_t root_used = 0;
 //每次复制前将 该指针 指向 to的首地址
 void* free_p;
+int from = 1;
+int to   = 0;
+
+/**
+ * 初始化所有的堆
+ **/
+void gc_init(size_t heap_size)
+{
+    //关闭扩充堆
+    auto_grow = 0;
+    //默认三个堆用于标记清除算法
+    gc_heaps_used = 3;
+
+    for (size_t i = 0; i < gc_heaps_used; i++){
+        //使用sbrk 向操作系统申请大内存块
+        void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+        gc_heaps[i].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
+        gc_heaps[i].size = heap_size;
+        gc_heaps[i].slot->size = heap_size;
+        gc_heaps[i].slot->next_free = NULL;
+        //默认情况下0 是给 to堆使用的  不需要挂载到 free_list 空闲链表上
+        if(i) gc_free(gc_heaps[i].slot + 1);
+    }
+}
+//重from堆 检查该指针
+Header*  get_header_by_from(void *ptr)
+{
+    size_t i;
+    Header* from_ptr = gc_heaps[from].slot;
+    if ((((void *)from_ptr) > ptr) && ((((void*)from_ptr) + HEADER_SIZE +  gc_heaps[from].size)) <= ptr) {
+        return NULL;
+    }
+    Header *p, *pend, *pnext;
+
+    pend = (Header *)(((void*)(from_ptr+1)) + gc_heaps[from].size);
+    for (p = from_ptr; p < pend; p = pnext) {
+        pnext = NEXT_HEADER(p);
+        if ((void *)(p+1) <= ptr && ptr < (void *)pnext) {
+            return p;
+        }
+    }
+    return NULL;
+}
+//在gc的时候 from已经全部复制到to堆
+//这个时候需要清空from堆，但是再次之前我们需要将free_list空闲指针还保留在from堆上的去除
+void remove_from(){
+    //遍历所有的空闲链表如果在from堆则去除该引用
+    Header* prevp = free_list;
+
+    void* from_start = gc_heaps[from].slot;
+    void* from_end   = gc_heaps[from].slot + HEADER_SIZE + gc_heaps[from].size;
+    for (Header* p = prevp; p ; prevp = p, p = p->next_free) {
+        //看看当前 p 是否在堆  from上
+        if((void*)p <= from_end && (void*)p >= from_start)
+            prevp->next_free = p->next_free;
+    }
+
+}
 /**
  * 查看该对象是否存在于from堆上
  */
@@ -18,42 +73,13 @@ int is_pointer_to_from_space(void* ptr)
         return 1;
     return 0;
 }
-
-/**
- * 开始进行gc标记
- **/
-void* gc_mark(void *ptr){
-    Header *hdr;
-    if (!(hdr = get_header(ptr))) {
-//      printf("not find header\n");
-      return ptr;
-    }
-    if (!FL_TEST(hdr, FL_ALLOC)) {
-      printf("flag not set alloc\n");
-      return ptr;
-    }
-    if (FL_TEST(hdr, FL_MARK)) {
-      //printf("flag not set mark\n");
-      return ptr;
-    }
-
-    /* marking */
-    FL_SET(hdr, FL_MARK);
-//    printf("mark ptr : %p, header : %p\n", ptr, hdr);
-    //进行子节点递归 标记
-    gc_mark_or_copy_range((void *)(hdr+1) + 1, (void *)NEXT_HEADER(hdr));
-    return ptr;
-}
 /**
  * 进行子对象拷贝
  */
-void* gc_copy(void *ptr){
+void* gc_copy(void *ptr)
+{
     Header *hdr;
-
-    if (!(hdr = get_header(ptr))) {
-//      printf("not find header\n");
-      return NULL;
-    }
+    if (!(hdr = get_header_by_from(ptr))) return NULL;
     assert(FL_TEST(hdr,FL_ALLOC));
     //没有复制过  0 
     if(!IS_COPIED(hdr)){
@@ -73,8 +99,13 @@ void* gc_copy(void *ptr){
         hdr->forwarding = forwarding;
 
         printf("需要执行拷贝 ptr:%p hdr:%p  after:%p\n",ptr,hdr,forwarding);
+
         //从forwarding 指向的空间开始递归
-        gc_mark_or_copy_range((void *)(forwarding+1) + 1, (void *)NEXT_HEADER(forwarding));
+        for (void* p = (void*)(forwarding + 1); p < (void*)NEXT_HEADER(forwarding); p++) {
+            //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+            //递归进行 引用的拷贝
+            gc_mark_or_copy(*(void **)p);
+        }
         //返回body
         return forwarding + 1;
     }
@@ -87,50 +118,11 @@ void* gc_copy(void *ptr){
  * 返回to空间的 body
  * @param ptr
  */
-void* gc_mark_or_copy(void * ptr)
+void* gc_mark_or_copy(void* ptr)
 {
     if(is_pointer_to_from_space(ptr))
         return gc_copy(ptr);   
     return gc_mark(ptr);
-}
-/**
- * 遍历root 进行标记
- * @param start
- * @param end
- */
-void*  gc_mark_or_copy_range(void *start, void *end)
-{
-    void *p;
-
-    void* new_obj = gc_mark_or_copy(start);
-    //可能申请的内存 里面又包含了其他内存
-    for (p = start + 1; p < end; p++) {
-         //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-         //递归进行 引用的拷贝
-         gc_mark_or_copy(*(void **)p);
-    }
-    //返回 body
-    return new_obj;
-}
-/**
- * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
- * @param start
- * @param end
- */
-void     add_roots(void* o_ptr)
-{
-    void *ptr = *(void**)o_ptr;
-
-    Header* hdr = (Header*)ptr - 1;
-    roots[root_used].start = ptr;
-    roots[root_used].end = ptr + hdr->size;
-    roots[root_used].optr = o_ptr;
-    root_used++;
-
-    if (root_used >= ROOT_RANGES_LIMIT) {
-        fputs("Root OverFlow", stderr);
-        abort();
-    }
 }
 /**
  * 拷贝引用
@@ -141,18 +133,15 @@ void copy_reference()
     //遍历所有对象
     for(int i = 0; i < root_used; i ++)
     {
-        void* start =  roots[i].start;
-        void* end   =  roots[i].end;
+        void* start =  roots[i].ptr;
+        void* end   =  (void*)NEXT_HEADER(CURRENT_HEADER(start));
 
         //可能申请的内存 里面又包含了其他内存
         for (void *p = start; p < end; p++) {
 
             Header* hdr;
             //解引用 如果该内存依然是指向的from，且有forwarding 则需要改了
-            void *ptr = *(void**)p;
-            if (!(hdr = get_header(ptr))) {
-                continue;
-            }
+            if (!(hdr = get_header_by_from(*(void**)p))) continue;
             if(hdr->forwarding){
                 printf("拷贝引用 hdr:%p forwarding:%p\n",hdr,hdr->forwarding);
                 *(Header**)p = hdr->forwarding + 1;
@@ -162,42 +151,7 @@ void copy_reference()
         }
     }
 }
-/**
- * 清除 未标记内存 进行回收利用
- */
-void     gc_sweep(void)
-{
-    size_t i;
-    Header *p, *pend, *pnext;
 
-    //遍历所有的堆内存
-    //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
-    for (i = 0; i < gc_heaps_used; i++) {
-        //to 和 from堆不需要进行清除
-        if(i == from || i == to) continue;
-        //pend 堆内存结束为止
-        pend = (Header *)(((size_t)gc_heaps[i].slot) + gc_heaps[i].size);
-        //堆的起始为止 因为堆的内存可能被分成了很多份，所以需要遍历该堆的内存
-        for (p = gc_heaps[i].slot; p < pend; p = NEXT_HEADER(p)) {
-            //查看该堆是否已经被使用
-            if (FL_TEST(p, FL_ALLOC)) {
-                //查看该堆是否被标记过
-                if (FL_TEST(p, FL_MARK)) {
-                    DEBUG(printf("解除标记 : %p\n", p));
-                    //取消标记，等待下次来回收，如果在下次回收前
-                    //1. 下次回收前发现该内存又被重新访问了，则不需要清除
-                    //2. 下次回收前发现该内存没有被访问过，所以需要清除
-                    FL_UNSET(p, FL_MARK);
-                }else {
-                    DEBUG(printf("清除回收 :\n"));
-                    //回收的时候 要把header->size加上
-                    p->size += HEADER_SIZE;
-                    gc_free(p+1);
-                }
-            }
-        }
-    }
-}
 
 void  gc(void)
 {
@@ -208,12 +162,10 @@ void  gc(void)
 
     //递归进行复制  从 from  => to
     for(int i = 0;i < root_used;i++){
-        void* forwarded = gc_mark_or_copy_range(roots[i].start, roots[i].end);
-
+        void* forwarded = gc_mark_or_copy(roots[i].ptr);
         *(Header**)roots[i].optr = forwarded;
         //将root 所有的执行换到 to上
-        roots[i].start = forwarded;
-        roots[i].end   = forwarded + CURRENT_HEADER(forwarded)->size;
+        roots[i].ptr = forwarded;
     }
     copy_reference();
     //其他部分执行gc清除

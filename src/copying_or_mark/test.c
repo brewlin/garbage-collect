@@ -1,5 +1,5 @@
 #include "gc.h"
-#include "copying.h"
+#include "header.h"
 
 typedef struct t{
     int       value;
@@ -9,13 +9,9 @@ int clear(){
     free_list = NULL;
     to = 0;
     from = 1;
-    for (int j = 0; j <= root_used ; ++j){
-        roots[j].start = NULL;
-        roots[j].end = NULL;
-    }
+    root_used = 0;
     gc_heaps_used = 0;
     free_p = NULL;
-    root_used = 0;
 }
 void test_auto_gc(){
     /**
@@ -25,7 +21,7 @@ void test_auto_gc(){
      *          heaps[1] 作为from
      *          heaps[2] 作为mark1
      */
-    gc_init(sizeof(T) + HEADER_SIZE,3);
+    gc_init(sizeof(T) + HEADER_SIZE);
     assert(to == 0);
     assert(from == 1);
 
@@ -59,8 +55,6 @@ void test_auto_gc(){
     T* t4 = gc_malloc(sizeof(T));
     assert(t3->value==100);
 
-
-
 }
 /**
  * 测试加入root后的gc情况
@@ -73,7 +67,7 @@ void test_add_root_gc(){
      *          heaps[1] 作为from
      *          heaps[2] 作为mark1
      */
-    gc_init(sizeof(T) + HEADER_SIZE,3);
+    gc_init(sizeof(T) + HEADER_SIZE);
     assert(to == 0);
     assert(from == 1);
 
