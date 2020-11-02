@@ -49,28 +49,28 @@ T* p = gc_malloc(sizeof(T));
 
 # 标记-清除算法
 
-## [mark-sweep](./mark-sweep) 
+## [mark-sweep](src/mark-sweep) 
 基础实现
-## [mark-sweep_multi_free_list](./mark-sweep_multi_free_list) 
+## [mark-sweep_multi_free_list](src/mark-sweep_multi_free_list) 
 多链表法实现
 
 # 引用计数算法
-## [reference-count](./refcount) 
+## [reference-count](src/refcount) 
 基础实现
 
 # 复制算法
-## [copying](./copying) 
+## [copying](src/copying) 
 基础实现
-## [copying_or_mark](./copying_or_mark) 
+## [copying_or_mark](src/copying_or_mark) 
 复制算法+标记清除 组合应用实现
 
 # 压缩算法
-## [compact_lisp2](./compact_lisp2) 
+## [compact_lisp2](src/compact_lisp2) 
 lisp2 算法
-## [compact_two_finger](./compact_two_finger) 
+## [compact_two_finger](src/compact_two_finger) 
 two_finger 算法
 
 # 分代垃圾回收算法
-[generational](./generational)
+[generational](src/generational)
 # 增量式-三色标记算法
-[tri-color-marking](./tri-color-marking)
+[tri-color-marking](src/tri-color-marking)

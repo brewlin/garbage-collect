@@ -1,4 +1,4 @@
-#include "gc.h"
+#include "../header/gc.h"
 
 
 //保存了所有申请的对象

@@ -1,5 +1,5 @@
 CC = gcc
-SRCS = $(wildcard *.c)
+SRCS = $(wildcard *.c) ../../header/gc.c
 BIN = gc
 
 all: clean gc
@@ -9,5 +9,5 @@ clean:
 	rm -rf *.o
 
 gc: $(SRCS)
-	$(CC) -g -o gc $(SRCS)
+	$(CC) -g -o gc $(SRCS) -I ../../header
 

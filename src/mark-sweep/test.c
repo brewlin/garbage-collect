@@ -1,4 +1,4 @@
-#include "gc.h"
+#include "../header/gc.h"
 int clear(){
     free_list = NULL;
     for (int i = 0; i <= gc_heaps_used; ++i){
