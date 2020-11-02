@@ -1,6 +1,4 @@
 #include "gc.h"
-#include "compact.h"
-
 typedef struct t{
     int       value;
     struct t* next;
@@ -12,7 +10,7 @@ int clear(){
 }
 void test_auto_gc(){
     //初始化4个T空间大小
-    gc_init(2 * (sizeof(T) + HEADER_SIZE), sizeof(T));
+    gc_init(2 * (sizeof(T) + HEADER_SIZE));
 
     T* t1 = gc_malloc(sizeof(T));
     assert(t1);
@@ -29,7 +27,7 @@ void test_auto_gc(){
  */
 void test_add_root_gc(){
     //初始化4个T空间大小
-    gc_init(2 * (sizeof(T) + HEADER_SIZE), sizeof(T));
+    gc_init(2 * (sizeof(T) + HEADER_SIZE));
 
     T* t1 = gc_malloc(sizeof(T));
     t1->value = 11;

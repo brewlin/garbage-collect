@@ -1,15 +1,36 @@
 #include "gc.h"
-#include "compact.h"
 
-//保存了所有申请的对象
-root roots[ROOT_RANGES_LIMIT];
-size_t root_used = 0;
+/**
+ * 初始化所有的堆
+ **/
+void gc_init(size_t heap_size)
+{
+    //关闭自动扩充堆
+    auto_grow = 0;
+    gc_heaps_used = 1;
+
+    //使用sbrk 向操作系统申请大内存块
+    void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+    gc_heaps[0].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
+    gc_heaps[0].size = heap_size;
+    gc_heaps[0].slot->size = heap_size;
+    gc_heaps[0].slot->next_free = NULL;
+    //将堆初始化到free_list 链表上
+    gc_free(gc_heaps[0].slot + 1);
+}
 /**
  * 开始进行gc标记
  **/
 void* gc_mark(void *ptr){
+    GC_Heap *gh;
     Header *hdr;
-    if (!(hdr = get_header(ptr))) {
+
+    /* mark check */
+    if (!(gh = is_pointer_to_heap(ptr))){
+//      printf("not pointer\n");
+        return ptr;
+    }
+    if (!(hdr = get_header(gh,ptr))) {
 //      printf("not find header\n");
       return ptr;
     }
@@ -24,9 +45,12 @@ void* gc_mark(void *ptr){
 
     /* marking */
     FL_SET(hdr, FL_MARK);
-//    printf("mark ptr : %p, header : %p\n", ptr, hdr);
     //进行子节点递归 标记
-    gc_mark_range((void *)(hdr+1) + 1, (void *)NEXT_HEADER(hdr));
+    for (void* p = ptr; p < (void*)NEXT_HEADER(hdr); p++) {
+        //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
+        //递归进行 引用的拷贝
+        gc_mark(*(void **)p);
+    }
     return ptr;
 }
 
@@ -40,32 +64,7 @@ void  gc_mark_range(void *start, void *end)
     void *p;
 
     gc_mark(start);
-    //可能申请的内存 里面又包含了其他内存
-    for (p = start; p < end; p++) {
-         //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-         //递归进行 引用的拷贝
-         gc_mark(*(void **)p);
-    }
-}
-/**
- * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
- * @param start
- * @param end
- */
-void     add_roots(void* o_ptr)
-{
-    void *ptr = *(void**)o_ptr;
 
-    Header* hdr = (Header*)ptr - 1;
-    roots[root_used].start = ptr;
-    roots[root_used].end = ptr + hdr->size;
-    roots[root_used].optr = o_ptr;
-    root_used++;
-
-    if (root_used >= ROOT_RANGES_LIMIT) {
-        fputs("Root OverFlow", stderr);
-        abort();
-    }
 }
 
 /**
@@ -120,11 +119,10 @@ void adjust_ptr()
 {
     //遍历所有对象 更新root
     for(int i = 0; i < root_used; i ++){
-        Header* current    = CURRENT_HEADER(roots[i].start);
+        Header* current    = CURRENT_HEADER(roots[i].ptr);
         Header* forwarding =  current->forwarding;
         if(current >= free_list){
-            roots[i].start = forwarding+1;
-            roots[i].end   = (void*)(forwarding+1) + forwarding->size;
+            roots[i].ptr = forwarding+1;
             *(Header**)roots[i].optr = forwarding+1;
         }
     }
@@ -145,12 +143,13 @@ void adjust_ptr()
             //可能申请的内存 里面又包含了其他内存
             for (void* obj = p+1; obj < (void*)NEXT_HEADER(p); obj++)
             {
-                //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-                //递归进行 引用的拷贝
-                Header* hdr = get_header(*(void**)obj);
-                if(hdr >= free_list)
-                    //更新引用
-                    *(Header**)obj = hdr->forwarding + 1;
+                //正确找到了 child 引用
+                GC_Heap *gh;
+                Header  *hdr;
+                if (!(gh = is_pointer_to_heap(*(void**)obj))) continue;
+                if((hdr = get_header(gh,*(void**)obj))) {
+                    *(Header **) obj = hdr->forwarding + 1; //更新引用
+                }
             }
         }
     }
@@ -161,7 +160,7 @@ void  gc(void)
     printf("start gc()\n");
     //gc 递归标记
     for(int i = 0;i < root_used;i++)
-        gc_mark_range(roots[i].start, roots[i].end);
+        gc_mark(roots[i].ptr);
 
     //移动对象
     move_obj();

@@ -1,5 +1,4 @@
 #include "gc.h"
-#include "compact.h"
 
 typedef struct t{
     int       value;
@@ -11,12 +10,12 @@ int clear(){
     root_used = 0;
 }
 void test_auto_gc(){
-    //初始化4个T空间大小
-    gc_init(4 * (sizeof(T) + HEADER_SIZE));
+    //初始化3个T空间大小
+    gc_init(3 * (sizeof(T) + HEADER_SIZE));
 
     T* t1 = gc_malloc(sizeof(T));
     assert(t1);
-    T* t2 = gc_malloc(2 * sizeof(T));
+    T* t2 = gc_malloc(sizeof(T));
     assert(t2);
     T* t3 = gc_malloc(sizeof(T));
     assert(t3);
@@ -30,14 +29,14 @@ void test_auto_gc(){
  * 测试加入root后的gc情况
  */
 void test_add_root_gc(){
-    //初始化4个T空间大小
-    gc_init(4 * (sizeof(T) + HEADER_SIZE));
+    //初始化3个T空间大小
+    gc_init(3 * (sizeof(T) + HEADER_SIZE));
 
     T* t1 = gc_malloc(sizeof(T));
     t1->value = 11;
     assert(t1);
     add_roots(&t1);
-    T* t2 = gc_malloc(2 * sizeof(T));
+    T* t2 = gc_malloc(sizeof(T));
     t2->value = 12;
     T* t3 = gc_malloc(sizeof(T));
     t1->next = t2;

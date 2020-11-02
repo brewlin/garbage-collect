@@ -127,9 +127,11 @@ alloc:
             //就是导致内存碎片
             else {
                 /* too big */
-                p->size -= (req_size + HEADER_SIZE);
-                //这里就是从当前堆的堆首  跳转到末尾申请的那个堆
-                p = NEXT_HEADER(p);
+//                p->size -= (req_size + HEADER_SIZE);
+//                这里就是从当前堆的堆首  跳转到末尾申请的那个堆
+//                p = NEXT_HEADER(p);
+                prevp = (void*)prevp + HEADER_SIZE + req_size;
+                prevp->size = p->size - (req_size + HEADER_SIZE);
             }
             p->size = req_size;
             free_list = prevp;
@@ -149,10 +151,9 @@ alloc:
         gc();
         do_gc = 1;
         goto alloc;
-    }
-    //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-    else if ((p = gc_grow(req_size + HEADER_SIZE)) != NULL){
-        goto alloc;
+    }else if(auto_grow){ //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
+        p = gc_grow(req_size + HEADER_SIZE);
+        if(p != NULL) goto alloc;
     }
     return NULL;
 
@@ -164,11 +165,12 @@ alloc:
 void    gc_free(void *ptr)
 {
     DEBUG(printf("释放内存 :%p free_list:%p\n",ptr,free_list));
-    Header *target, *hit;
+    Header *target, *hit,*prevp;
     //通过内存地址向上偏移量找到  header头
     target = (Header *)ptr - 1;
     //回收的数据立马清空
     memset(ptr,0,target->size);
+    target->flags = 0;
 
     if(free_list == NULL){
         free_list = target;
@@ -176,8 +178,10 @@ void    gc_free(void *ptr)
         target->size += HEADER_SIZE;
         return;
     }
+
+    prevp = free_list;
     /* search join point of target to free_list */
-    for (hit = free_list; !(target > hit && target < hit->next_free); hit = hit->next_free)
+    for (hit = prevp; !(target > hit && target < hit->next_free); prevp = hit , hit = hit->next_free)
         /* heap end? And hit(search)? */
         if (hit >= hit->next_free && (target > hit || target < hit->next_free || hit->next_free == NULL))
             break;
@@ -188,6 +192,14 @@ void    gc_free(void *ptr)
         /* merge */
         target->size += (hit->next_free->size + HEADER_SIZE);
         target->next_free = hit->next_free->next_free;
+
+    //如果当前的下一个是 hit,将hit合并为target的一部分
+    }else if(NEXT_HEADER(target) == hit){
+        target->size += (hit->size + HEADER_SIZE);
+        target->next_free = hit->next_free;
+        if(hit == prevp && prevp == free_list) free_list = target;
+        else  prevp->next_free = target;
+        return;
     }else {
         /* join next free block */
         //1. 在扩充堆的时候 新生成的堆 会插入到 free_list 后面
@@ -203,7 +215,6 @@ void    gc_free(void *ptr)
         /* join before free block */
         hit->next_free = target;
     }
-    target->flags = 0;
 }
 
 
