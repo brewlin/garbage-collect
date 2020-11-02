@@ -173,8 +173,7 @@ void    gc_free(void *ptr)
     }
     /* search join point of target to free_list */
     for (hit = free_list; !(target > hit && target < hit->next_free); hit = hit->next_free)
-        /* heap end? And hit(search)? */
-        if (hit >= hit->next_free && (target > hit || target < hit->next_free))
+        if (hit >= hit->next_free && (target > hit || target < hit->next_free || hit->next_free == NULL))
             break;
 
     // 1. 在扩充堆的时候 这个target 的下个header 指向的是非法空间

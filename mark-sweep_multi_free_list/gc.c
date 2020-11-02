@@ -175,9 +175,7 @@ void    gc_free(void *ptr)
     /* search join point of target to free_list */
     //在回收的时候这个步骤 是为了找到 当前地址所在堆，但是如果当前ptr为新增的堆 则不需要这个步骤
     for (hit = free_list[0]; !(target > hit && target < hit->next_free); hit = hit->next_free)
-        /* heap end? And hit(search)? */
-        if (hit >= hit->next_free &&
-            (target > hit || target < hit->next_free))
+        if (hit >= hit->next_free && (target > hit || target < hit->next_free || hit->next_free == NULL))
             break;
 
     // 1. 在扩充堆的时候 这个target 的下个header 指向的是非法空间
