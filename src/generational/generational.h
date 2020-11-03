@@ -7,12 +7,9 @@
 #ifndef GC_LEARNING_COPYING_H
 #define GC_LEARNING_COPYING_H
 
-#define AGE_MAX 3
+#include "gc.h"
 
-//将申请的内存 加入 root 管理
-void  add_roots(void* ptr);
-//在gc的时候判断该对象是否在old堆上分配的
-int   is_pointer_to_old_space(void* ptr);
+#define AGE_MAX 3
 
 /**
  * 写入屏障
@@ -22,23 +19,25 @@ int   is_pointer_to_old_space(void* ptr);
  * @param field
  * @param new_obj
  */
-void write_barrier(void *obj_ptr,void *field,void* new_obj_ptr);
+void    write_barrier(void *obj_ptr,void *field,void* new_obj_ptr);
+void*   major_malloc(size_t req_size);
+void*   minor_malloc(size_t req_size);
+void    major_gc(void);
+void    minor_gc(void);
 
-//每次gc的时候将 free指向 to的开头
-extern void* to_free_p;
-
-
-/****** 标记清除法实现-------------*/
-typedef struct root_range {
-    void *start;
-    void *end;
-    //这里存储了 用户方变量地址 因为复制完成后需要替换用户态的变量地址
-    void *optr;
-}root;
-extern root roots[ROOT_RANGES_LIMIT];
-extern size_t root_used;
+//生成空间 new generational
+extern int newg;
+//幸存空间1 survivor1 generational
+extern int survivorfromg;
+//幸存空间2 survivor1 generational
+extern int survivortog;
+//老年代空间 old generational
+extern int oldg;
 //保存对象引用关系同时存在新生代和老年代的 对象
 extern void* rs[ROOT_RANGES_LIMIT];
 extern int   rs_index;
+
+extern void* to_free_p;
+extern Header* new_free_p;
 
 #endif //GC_LEARNING_COPYING_H

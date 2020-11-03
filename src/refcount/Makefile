@@ -9,4 +9,4 @@ clean:
 	rm -rf *.o
 
 gc: $(SRCS)
-	$(CC) -g -o gc -O2 -pthread $(SRCS)
+	$(CC) -g -o gc -O2 -pthread $(SRCS) ../../header/gc.c -I ../../header

@@ -137,8 +137,14 @@ alloc:
             p->size = req_size;
             free_list = prevp;
             //给新分配的p 设置为标志位 fl_alloc 为新分配的空间
-            FL_SET(p, FL_ALLOC);
             printf("%p\n",p);
+            p->flags = 0;
+            p->ref   = 1;
+            FL_SET(p, FL_ALLOC);
+            //设置年龄为0
+            p->age = 0;
+            p->forwarding = NULL;
+
             //新的内存 是包括了 header + mem 所以返回给 用户mem部分就可以了
             return (void *)(p+1);
         }
@@ -235,6 +241,20 @@ GC_Heap* is_pointer_to_heap(void *ptr)
             ((size_t)ptr < (((size_t)gc_heaps[i].slot) + HEADER_SIZE +  gc_heaps[i].size))) {
             return &gc_heaps[i];
         }
+    }
+    return NULL;
+}
+/**
+ *
+ * @param ptr
+ * @param i
+ * @return
+ */
+GC_Heap* is_pointer_to_space(void *ptr,size_t i)
+{
+    if ((((void *)gc_heaps[i].slot) <= ptr) &&
+        ((size_t)ptr < (((size_t)gc_heaps[i].slot) + HEADER_SIZE +  gc_heaps[i].size))) {
+        return &gc_heaps[i];
     }
     return NULL;
 }

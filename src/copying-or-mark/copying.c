@@ -57,7 +57,13 @@ void remove_from(){
     for (Header* p = prevp; p ; prevp = p, p = p->next_free) {
         //看看当前 p 是否在堆  from上
         if((void*)p <= from_end && (void*)p >= from_start)
-            prevp->next_free = p->next_free;
+        {
+            //由可能 free_list 表头就是来自于from堆
+            if(free_list == prevp)
+                free_list = p->next_free;
+            else
+                prevp->next_free = p->next_free;
+        }
     }
 
 }

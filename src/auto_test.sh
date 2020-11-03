@@ -4,6 +4,10 @@ assert(){
     cd "$input"
     make
     ./gc
+    if [  "$?" != 0 ]; then
+        echo "\033[31m test $input failed code:$?\033[0m"
+        exit 1
+    fi
     cd ..
 }
 read_dir(){

@@ -4,7 +4,9 @@
 #include <string.h>
 #include "refcount.h"
 #include "gc.h"
-
+void gc(void){
+  //nothing need to do for referenceount
+}
 /**
  * 引用计数 + 1
  * @param ptr

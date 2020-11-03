@@ -15,8 +15,10 @@
  * 同样的也可以通过 ptr-sizeof(header) 拿到header头
  */
 typedef struct header {
+    size_t ref;
     size_t flags;
     size_t size;
+    size_t age;
     struct header *next_free;
     struct header *forwarding;
 } Header;
@@ -35,8 +37,8 @@ typedef struct gc_heap {
  * 根
  */
 typedef struct root_{
-    void *ptr;  //这里存储了 用户方变量地址 因为复制完成后需要替换用户态的变量地址
-    void *optr;
+    void *ptr;
+    void *optr;//这里存储了 用户方变量地址 因为复制完成后需要替换用户引用的变量地址
 }root;
 
 /* marco */
@@ -60,11 +62,13 @@ typedef struct root_{
 #define FL_ALLOC  0x1
 #define FL_MARK   0x2
 #define FL_COPIED 0x4
+#define FL_REMEMBERED 0x8
 #define FL_SET(x, f) (((Header *)x)->flags |= f)
 #define FL_UNSET(x, f) (((Header *)x)->flags &= ~(f))
 #define FL_TEST(x, f) (((Header *)x)->flags & f)
 #define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_hit = free_listTEST(x, FL_MARK))
 #define IS_COPIED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_COPIED))
+#define IS_REMEMBERED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_REMEMBERED))
 
 /* public api */
 void     gc(void);                     //执行gc 垃圾回收
@@ -73,6 +77,7 @@ void     gc_free(void *ptr);           //回收内存
 void*    gc_malloc(size_t req_size);   //从堆缓存中申请一份内存
 Header*  gc_grow(size_t req_size);     //某些算法在内存不够的时候会扩充堆
 GC_Heap* is_pointer_to_heap(void *ptr);//获取指针对应的堆首地址
+GC_Heap* is_pointer_to_space(void *ptr,size_t i);
 //安全的获取header头，可以通过内存段来定位该header
 // 因为如果ptr 刚好不在 header+1处的话 无法通过(ptr- sizeof(Header)) 来获取header地址
 Header*  get_header(GC_Heap *gh, void *ptr);
@@ -86,10 +91,6 @@ extern GC_Heap gc_heaps[HEAP_LIMIT];
 extern size_t gc_heaps_used;
 extern int auto_gc;
 extern int auto_grow;
-
-
-
-
 
 
 extern root roots[ROOT_RANGES_LIMIT];
