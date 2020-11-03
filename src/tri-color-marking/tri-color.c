@@ -1,14 +1,38 @@
 #include "gc.h"
 #include "stack.h"
+#include "tri-color.h"
 
 Stack stack;
+int gc_phase  = GC_ROOT_SCAN;
+int max_mark  = 0;
+int max_sweep = 0;
+int sweeping  = 0;
 
 
-//保存了所有申请的对象
-root roots[ROOT_RANGES_LIMIT];
-size_t root_used = 0;
-int sweeping = 0;
+void gc_init(size_t heap_size)
+{
+    for (size_t i = 0; i < gc_heaps_used; i++){
+        //使用sbrk 向操作系统申请大内存块
+        void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+        if(p == NULL)exit(-1);
 
+        gc_heaps[i].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
+        gc_heaps[i].size = heap_size;
+        gc_heaps[i].slot->size = heap_size;
+        gc_heaps[i].slot->next_free = NULL;
+
+        Header* up = gc_heaps[i].slot;
+
+        if(free_list == NULL){
+            memset(up +  1,0,up->size);
+            free_list = up;
+            up->flags = 0;
+        }else{
+            gc_free((void *)(up+1));
+        }
+    }
+
+}
 /**
  * 对该对象进行标记
  * 并进行子对象标记
@@ -48,20 +72,28 @@ void gc_mark(void * ptr)
 }
 
 /**
- * 将分配的变量 添加到root 引用,只要是root上的对象都能够进行标记
- * @param start
- * @param end
+ * 为了防止在中断gc后 其他操作导致之前gc的状态发生异常
+ * 需要引入写入屏障，在更新的时候需要调用处理
+ * @param obj_ptr
+ * @param field
+ * @param new_obj_ptr
  */
-void     add_roots(void* obj)
+void write_barrier(void *obj_ptr,void *field,void* new_obj_ptr)
 {
-    roots[root_used] = obj;
-    root_used++;
-    if (root_used >= ROOT_RANGES_LIMIT) {
-        fputs("Root OverFlow", stderr);
-        abort();
-    }
-}
 
+    Header* obj     = CURRENT_HEADER(obj_ptr);
+    Header* new_obj = CURRENT_HEADER(new_obj_ptr);
+    //如果老对象已经被标记了 就要检查新对象是否标记了
+    if(IS_MARKED(obj)){
+        if(!IS_MARKED(new_obj)){
+            FL_SET(new_obj,FL_MARK);
+            push(&stack,new_obj_ptr);
+        }
+    }
+    //obj->field = new_obj
+    *(void **)field = new_obj_ptr;
+
+}
 /**
  * root 扫描阶段 将所有的root可达对象加入队列中
  */
@@ -70,7 +102,7 @@ void root_scan_phase()
     //垃圾回收前 先从 root 开始 进行递归标记
     for(int i = 0;i < root_used;i++)
     {
-        void* ptr = roots[i];
+        void* ptr = roots[i].ptr;
         GC_Heap *gh;
         Header *hdr;
         if (!(gh = is_pointer_to_heap(ptr))) continue;
@@ -174,26 +206,3 @@ void  gc(void)
     }
 }
 
-/**
- * 为了防止在中断gc后 其他操作导致之前gc的状态发生异常
- * 需要引入写入屏障，在更新的时候需要调用处理
- * @param obj_ptr
- * @param field
- * @param new_obj_ptr
- */
-void write_barrier(void *obj_ptr,void *field,void* new_obj_ptr)
-{
-
-    Header* obj     = CURRENT_HEADER(obj_ptr);
-    Header* new_obj = CURRENT_HEADER(new_obj_ptr);
-    //如果老对象已经被标记了 就要检查新对象是否标记了
-    if(IS_MARKED(obj)){
-        if(!IS_MARKED(new_obj)){
-            FL_SET(new_obj,FL_MARK);
-            push(&stack,new_obj_ptr);
-        }
-    }
-    //obj->field = new_obj
-    *(void **)field = new_obj_ptr;
-
-}

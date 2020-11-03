@@ -118,7 +118,7 @@ alloc:
                 /* 刚好满足 */
                 // 从空闲列表上 移除当前的 堆，因为申请的大小刚好把堆消耗完了
                 if(p == prevp)
-                    prevp = p->next_free;
+                    free_list = prevp = p->next_free;
                 else
                     prevp->next_free = p->next_free;
 

@@ -124,12 +124,12 @@ void test_malloc_speed(){
     auto_gc = 0;
     time_t start,end;
     start = time(NULL);
-    for (int i = 0; i < 10000; ++i) {
+    for (int i = 0; i < 100; ++i) {
         int size = rand()%90;
         void *p = gc_malloc(size);
     }
     gc();
-    for (int i = 0; i < 10000; ++i) {
+    for (int i = 0; i < 100; ++i) {
         int size = rand() % 90;
         void *p = gc_malloc(size);
     }
@@ -154,6 +154,6 @@ int  main(int argc, char **argv)
     test_reference_gc();
     clear();
     //测试分配速度
-    test_malloc_speed();
+//    test_malloc_speed();
     return 0;
 }

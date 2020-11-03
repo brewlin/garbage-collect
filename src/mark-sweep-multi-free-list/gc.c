@@ -26,7 +26,7 @@ Header* add_heap(size_t req_size)
     if (req_size > MAX_SLICE_HEAP){
         if(req_size < TINY_HEAP_SIZE)
             req_size = TINY_HEAP_SIZE;
-        printf("大内存分配:%d\n",req_size);
+        printf("大内存分配:%ld\n",req_size);
         //使用sbrk 向操作系统申请大内存块
         // size + header大小 最后加一个 8字节是为了内存对齐
         if((p = sbrk(req_size + PTRSIZE + HEADER_SIZE)) == (void *)-1){
@@ -35,7 +35,7 @@ Header* add_heap(size_t req_size)
         }
     //小内存块
     }else{
-        printf("小内存分配:%d\n",req_size);
+        printf("小内存分配:%ldd\n",req_size);
         if((p = malloc(req_size + HEADER_SIZE + PTRSIZE)) == (void*)-1){
             printf("mallock 分配内存失败\n");
             return NULL;
@@ -94,7 +94,7 @@ void*   gc_malloc(size_t req_size)
     }
     if(req_size > MAX_SLICE_HEAP)
         index = 0;
-    printf("gc_malloc :%d size:%d\n",index,req_size);
+    printf("gc_malloc :%d size:%ld\n",index,req_size);
 
     alloc:
     //从空闲链表上去搜寻 空余空间

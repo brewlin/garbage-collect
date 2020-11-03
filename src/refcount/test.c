@@ -195,7 +195,7 @@ void  test_update_ptr(){
 
 
 }
-void main(){
+int main(){
   printf("------------测试多线程引用计数---------------\n");
   test_multi_gc();
   printf("-----------    passing    ---------------\n\n");
@@ -216,4 +216,5 @@ void main(){
   //测试对象引用
   test_update_ptr();
   printf("-----------    passing    ---------------\n\n");
+  return 0;
 }

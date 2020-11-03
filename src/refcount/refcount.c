@@ -78,11 +78,11 @@ int ref_count(void *ptr)
   //find header
   if (!(gh = is_pointer_to_heap(ptr))){
 //    printf("not pointer\n");
-    return NULL;
+    return 0;
   }
   if (!(hdr = get_header(gh, ptr))) {
     printf("not find header\n");
-    return NULL;
+    return 0;
   }
   return hdr->ref;
 }

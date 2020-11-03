@@ -165,6 +165,6 @@ int  main(int argc, char **argv)
     test_reference_gc();
     clear();
 
-    test_malloc_speed();
+//    test_malloc_speed();
     return 0;
 }

@@ -42,21 +42,17 @@ typedef struct root_{
 }root;
 
 /* marco */
-#define TINY_HEAP_SIZE 4 * 1024
-//计算指针 所占内存大小
+#define TINY_HEAP_SIZE 4 * 1024              //计算指针 所占内存大小
 #define PTRSIZE ((size_t) sizeof(void *))
-#define HEADER_SIZE ((size_t) sizeof(Header))
-//堆的上限
-#define HEAP_LIMIT 100000
-//字节对齐 向上取整
+#define HEADER_SIZE ((size_t) sizeof(Header))//堆的上限
+#define HEAP_LIMIT 100000                    //字节对齐 向上取整
 #define ALIGN(x,a) (((x) + (a - 1)) & ~(a - 1))
-//x为一个header*，那么通过当前的对象 可以找到下一个使用的对象地址
-//[ [header] x->size [header] x->size ....]
-#define NEXT_HEADER(x) ((Header *)((size_t)(x+1) + x->size))
+#define NEXT_HEADER(x) ((Header *)((size_t)(x+1) + x->size)) //[ [header] x->size [header] x->size ....]
 #define CURRENT_HEADER(x) ((Header *)x - 1)
 
 #define ROOT_RANGES_LIMIT 100000
 #define DEBUG(exp) exp
+
 
 /* flags */
 #define FL_ALLOC  0x1
@@ -66,7 +62,7 @@ typedef struct root_{
 #define FL_SET(x, f) (((Header *)x)->flags |= f)
 #define FL_UNSET(x, f) (((Header *)x)->flags &= ~(f))
 #define FL_TEST(x, f) (((Header *)x)->flags & f)
-#define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_hit = free_listTEST(x, FL_MARK))
+#define IS_MARKED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_MARK))
 #define IS_COPIED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_COPIED))
 #define IS_REMEMBERED(x) (FL_TEST(x, FL_ALLOC) && FL_TEST(x, FL_REMEMBERED))
 

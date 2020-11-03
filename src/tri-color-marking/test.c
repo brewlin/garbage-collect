@@ -1,16 +1,9 @@
 #include "gc.h"
+#include "tri-color.h"
 int clear(){
     free_list = NULL;
     sweeping = 0;
-    for (int i = 0; i <= gc_heaps_used; ++i){
-        gc_heaps[i].size = 0;
-        gc_heaps[i].slot = NULL;
-    }
     gc_heaps_used = 0;
-
-    for (int j = 0; j <= root_used ; ++j){
-        roots[j] = NULL;
-    }
     root_used = 0;
     auto_gc = 1;
 }
@@ -32,7 +25,8 @@ void test_malloc_free(){
     auto_gc = 0;
     auto_grow = 0;
     //每个堆 可以存储1个Obj
-    gc_init(sizeof(Obj) + HEADER_SIZE, 1);
+    gc_heaps_used  = 1;
+    gc_init(sizeof(Obj) + HEADER_SIZE);
     //在回收p1的情况下 p2的申请将复用p1的地址
     Obj *p1 = gc_malloc(sizeof(Obj));
     gc_free(p1);
@@ -52,17 +46,18 @@ void test_gc(){
     //测试的时候关闭自动扩充堆
     auto_grow = 0;
     //每个堆 可以存储1个Obj
-    gc_init(sizeof(Obj) + HEADER_SIZE, 3);
+    gc_heaps_used = 3;
+    gc_init(sizeof(Obj) + HEADER_SIZE);
     //一次扫描3个堆
     max_sweep = 3;
     //一次标记1个对象
     max_mark  = 1;
 
     Obj *p1 = gc_malloc(sizeof(Obj));
-    add_roots(p1);
+    add_roots(&p1);
     assert(p1);
     Obj *p2 = gc_malloc(sizeof(Obj));
-    add_roots(p2);
+    add_roots(&p2);
     assert(p2);
     Obj *p3 = gc_malloc(sizeof(Obj));
     p3->v = 33;
@@ -104,14 +99,15 @@ void test_write_barrier()
     auto_grow = 0;
     auto_gc   = 1;
     //每个堆 可以存储1个Obj
-    gc_init(4 * (sizeof(Obj) + HEADER_SIZE),1);
+    gc_heaps_used = 1;
+    gc_init(4 * (sizeof(Obj) + HEADER_SIZE));
     //一次扫描3个堆
     max_sweep = 1;
     //一次标记1个对象
     max_mark  = 1;
 
     Obj* p1 = gc_malloc(sizeof(Obj));
-    add_roots(p1);
+    add_roots(&p1);
     //p1 被标记
     gc();
     assert(gc_phase == GC_MARK);
@@ -141,7 +137,8 @@ void test_write_barrier2()
     auto_grow = 0;
     auto_gc   = 1;
     //每个堆 可以存储4个Obj
-    gc_init(4 * (sizeof(Obj) + HEADER_SIZE),1);
+    gc_heaps_used = 1;
+    gc_init(4 * (sizeof(Obj) + HEADER_SIZE));
     //一次扫描3个堆
     max_sweep = 1;
     //一次标记1个对象
