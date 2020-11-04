@@ -65,8 +65,6 @@ void     gc_sweep(void)
                     FL_UNSET(p, FL_MARK);
                 }else {
                     DEBUG(printf("清除回收 :\n"));
-                    //回收的时候 要把header->size加上
-                    p->size += HEADER_SIZE;
                     gc_free(p+1);
                 }
             }

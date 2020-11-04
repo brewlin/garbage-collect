@@ -49,7 +49,7 @@ typedef struct root_{
 #define  HEADER_SIZE ((size_t) sizeof(Header))//堆的上限
 #define  HEAP_LIMIT 100000                    //字节对齐 向上取整
 #define  ALIGN(x,a) (((x) + (a - 1)) & ~(a - 1))
-#define  NEXT_HEADER(x) ((Header *)((size_t)(x+1) + x->size)) //[ [header] x->size [header] x->size ....]
+#define  NEXT_HEADER(x) ((Header *)((size_t)(x+1) + (x->size- HEADER_SIZE))) //[ [header] x->size [header] x->size ....]
 #define  CURRENT_HEADER(x) ((Header *)x - 1)
 
 

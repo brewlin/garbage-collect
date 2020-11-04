@@ -9,7 +9,7 @@ void gc_init(size_t heap_size)
 
     gc_heaps_used = 1;
     //使用sbrk 向操作系统申请大内存块
-    void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+    void* p = sbrk(heap_size + PTRSIZE);
     gc_heaps[0].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
     gc_heaps[0].size = heap_size;
     gc_heaps[0].slot->size = heap_size;
@@ -74,7 +74,7 @@ void     set_forwarding_ptr(void)
                 if (FL_TEST(p, FL_MARK)) {
                     p->forwarding = new_obj;
                     //new_obj 继续下移 p个空间大小
-                    new_obj = (void*)(new_obj+1) + p->size;
+                    new_obj = (void*)new_obj + p->size;
                 }
             }
         }
@@ -146,11 +146,11 @@ void move_obj()
                 //查看该堆是否被标记过
                 if (FL_TEST(p, FL_MARK)) {
                     new_obj = p->forwarding;
-                    memcpy(new_obj, p, p->size + HEADER_SIZE);
+                    memcpy(new_obj, p, p->size);
                     FL_UNSET(new_obj,FL_MARK);
                     //空闲链表下移
-                    free_p = (void*)(free_p) + HEADER_SIZE + new_obj->size;
-                    total -= HEADER_SIZE + new_obj->size;
+                    free_p = (void*)free_p + new_obj->size;
+                    total -=  new_obj->size;
 
                 }
             }

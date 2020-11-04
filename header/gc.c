@@ -46,7 +46,7 @@ Header* add_heap(size_t req_size)
 
     //使用sbrk 向操作系统申请大内存块
     // size + header大小 最后加一个 8字节是为了内存对齐
-    if((p = sbrk(req_size + PTRSIZE + HEADER_SIZE)) == (void *)-1){
+    if((p = sbrk(req_size + PTRSIZE)) == (void *)-1){
         DEBUG(printf("sbrk 分配内存失败\n"));
         return NULL;
     }
@@ -81,7 +81,7 @@ Header* gc_grow(size_t req_size)
     //因为gc_free 是公用的，所以需要 将实际 mem 地址传入
     //新申请的堆不需要 进行gc 只需要挂载到 free_list 链表上就行
     if(free_list == NULL){
-        memset(up +  1,0,up->size);
+        memset(up +  1,0,up->size - HEADER_SIZE);
         free_list = up;
         up->flags = 0;
         return free_list;
@@ -100,6 +100,8 @@ void*   gc_malloc(size_t req_size)
     DEBUG(printf("内存申请 :%ld\n",req_size));
     Header *p, *prevp;
     size_t do_gc = 0;
+
+    req_size += HEADER_SIZE;
     //对齐 字节
     req_size = ALIGN(req_size, PTRSIZE);
 
@@ -112,9 +114,9 @@ alloc:
     //死循环 遍历
     for (p = prevp; p; prevp = p, p = p->next_free) {
         //堆的内存足够
-        if (p->size >= req_size + HEADER_SIZE) {
+        if (p->size >= req_size) {
             //刚好满足
-            if (p->size == req_size + HEADER_SIZE)
+            if (p->size == req_size)
                 /* 刚好满足 */
                 // 从空闲列表上 移除当前的 堆，因为申请的大小刚好把堆消耗完了
                 if(p == prevp)
@@ -130,9 +132,9 @@ alloc:
 //                p->size -= (req_size + HEADER_SIZE);
 //                这里就是从当前堆的堆首  跳转到末尾申请的那个堆
 //                p = NEXT_HEADER(p);
-                prevp = (void*)prevp + HEADER_SIZE + req_size;
+                prevp = (void*)prevp + req_size;
                 memcpy(prevp,p,HEADER_SIZE);
-                prevp->size = p->size - (req_size + HEADER_SIZE);
+                prevp->size = p->size - req_size;
             }
             p->size = req_size;
             free_list = prevp;
@@ -159,7 +161,7 @@ alloc:
         do_gc = 1;
         goto alloc;
     }else if(auto_grow){ //上面说明 执行了gc之后 内存依然不够用 那么需要扩充堆大小
-        p = gc_grow(req_size + HEADER_SIZE);
+        p = gc_grow(req_size);
         if(p != NULL) goto alloc;
     }
     return NULL;
@@ -176,19 +178,18 @@ void    gc_free(void *ptr)
     //通过内存地址向上偏移量找到  header头
     target = (Header *)ptr - 1;
     //回收的数据立马清空
-    memset(ptr,0,target->size);
+    memset(ptr,0,target->size-HEADER_SIZE);
     target->flags = 0;
 
     //空闲链表为空，直接将当前target挂到上面
     if(free_list == NULL){
         free_list = target;
         target->flags = 0;
-        target->size += HEADER_SIZE;
         return;
     }
     //特殊情况，如果target->next == free_list 在上面是无法判断的
     if(NEXT_HEADER(target) == free_list){
-        target->size += (free_list->size + HEADER_SIZE);
+        target->size += (free_list->size);
         target->next_free = free_list->next_free;
         free_list = target;
         return;
@@ -208,7 +209,7 @@ void    gc_free(void *ptr)
 
     //1. 判断右区间  如果target属于右区间 则合并
     if (NEXT_HEADER(target) == hit->next_free) {
-        target->size += (hit->next_free->size + HEADER_SIZE);
+        target->size += hit->next_free->size;
         target->next_free = hit->next_free->next_free;
     }else {
         target->next_free = hit->next_free;
@@ -217,7 +218,7 @@ void    gc_free(void *ptr)
     //2. 判断左区间  如果target属于做区间 则合并
     if (NEXT_HEADER(hit) == target) {
         /* merge */
-        hit->size += (target->size + HEADER_SIZE);
+        hit->size += target->size;
         hit->next_free = target->next_free;
     }else {
         hit->next_free = target;
@@ -238,7 +239,7 @@ GC_Heap* is_pointer_to_heap(void *ptr)
 
     for (i = 0; i < gc_heaps_used;  i++) {
         if ((((void *)gc_heaps[i].slot) <= ptr) &&
-            ((size_t)ptr < (((size_t)gc_heaps[i].slot) + HEADER_SIZE +  gc_heaps[i].size))) {
+            ((size_t)ptr < (((size_t)gc_heaps[i].slot) + gc_heaps[i].size))) {
             return &gc_heaps[i];
         }
     }
@@ -253,7 +254,7 @@ GC_Heap* is_pointer_to_heap(void *ptr)
 GC_Heap* is_pointer_to_space(void *ptr,size_t i)
 {
     if ((((void *)gc_heaps[i].slot) <= ptr) &&
-        ((size_t)ptr < (((size_t)gc_heaps[i].slot) + HEADER_SIZE +  gc_heaps[i].size))) {
+        ((size_t)ptr < (((size_t)gc_heaps[i].slot) + gc_heaps[i].size))) {
         return &gc_heaps[i];
     }
     return NULL;
@@ -268,7 +269,7 @@ Header*  get_header(GC_Heap *gh, void *ptr)
 {
     Header *p, *pend, *pnext;
 
-    pend = (Header *)(((size_t)gh->slot) + gh->size);
+    pend = (Header *)((size_t)gh->slot + gh->size);
     for (p = gh->slot; p < pend; p = pnext) {
         pnext = NEXT_HEADER(p);
         if ((void *)(p+1) <= ptr && ptr < (void *)pnext) {

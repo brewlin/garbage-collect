@@ -13,7 +13,7 @@ void gc_init(size_t heap_size)
 {
     for (size_t i = 0; i < gc_heaps_used; i++){
         //使用sbrk 向操作系统申请大内存块
-        void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+        void* p = sbrk(heap_size + PTRSIZE);
         if(p == NULL)exit(-1);
 
         gc_heaps[i].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
@@ -24,7 +24,7 @@ void gc_init(size_t heap_size)
         Header* up = gc_heaps[i].slot;
 
         if(free_list == NULL){
-            memset(up +  1,0,up->size);
+            memset(up +  1,0,up->size - HEADER_SIZE);
             free_list = up;
             up->flags = 0;
         }else{

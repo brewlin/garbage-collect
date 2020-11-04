@@ -15,7 +15,7 @@ void gc_init(size_t req_size)
     //关闭自动扩充堆
     auto_grow = 0;
     //使用sbrk 向操作系统申请大内存块
-    void* from_p = sbrk(req_size + PTRSIZE + HEADER_SIZE);
+    void* from_p = sbrk(req_size + PTRSIZE );
     from.slot  = (Header *)ALIGN((size_t)from_p, PTRSIZE);
     from.slot->next_free = NULL;
     from.slot->size = req_size;
@@ -35,12 +35,12 @@ Header*  get_header_by_from(void *ptr)
 {
     size_t i;
     Header* from_ptr = from.slot;
-    if ((((void *)from_ptr) > ptr) && ((((void*)from_ptr) + HEADER_SIZE +  from.size)) <= ptr) {
+    if ((((void *)from_ptr) > ptr) && ((((void*)from_ptr) +  from.size)) <= ptr) {
         return NULL;
     }
     Header *p, *pend, *pnext;
 
-    pend = (Header *)(((void*)(from_ptr+1)) + from.size);
+    pend = (Header *)(((void*)(from_ptr)) + from.size);
     for (p = from_ptr; p < pend; p = pnext) {
         pnext = NEXT_HEADER(p);
         if ((void *)(p+1) <= ptr && ptr < (void *)pnext) {
@@ -67,14 +67,14 @@ void* gc_copy(void * ptr)
         //在准备分配前的总空间
         size_t total = forwarding->size;
         //分配一份内存 将源对象拷贝过来
-        memcpy(forwarding, hdr, hdr->size+HEADER_SIZE);
+        memcpy(forwarding, hdr, hdr->size);
         //标记为已拷贝
         FL_SET(hdr,FL_COPIED);
         hdr->flags = 1;
         //free 指向下一个 body
-        free_p += (HEADER_SIZE + hdr->size);
+        free_p += hdr->size;
         //free_p 执行的剩余空间需要时刻维护着
-        ((Header*)free_p)->size = total - (hdr->size + HEADER_SIZE);
+        ((Header*)free_p)->size = total - hdr->size;
         //源对象 保留 新对象的引用
         hdr->forwarding = forwarding;
 

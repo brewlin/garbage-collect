@@ -10,7 +10,7 @@ void gc_init(size_t heap_size)
     gc_heaps_used = 1;
 
     //使用sbrk 向操作系统申请大内存块
-    void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+    void* p = sbrk(heap_size + PTRSIZE);
     gc_heaps[0].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
     gc_heaps[0].size = heap_size;
     gc_heaps[0].slot->size = heap_size;
@@ -86,7 +86,7 @@ void move_obj()
             //遍历到第一个非标记的地方，也就是空闲区
             while (FL_TEST(free_list, FL_ALLOC) && FL_TEST(free_list, FL_MARK) && free_list < live){
                 FL_UNSET(free_list,FL_MARK);
-                total -= HEADER_SIZE + free_list->size;
+                total -= free_list->size;
                 free_list = NEXT_HEADER(free_list);
             }
             //遍历到第一个被标记了的地方，这样就会将这个地方拷贝到上面的空闲区
@@ -96,9 +96,9 @@ void move_obj()
             //进行拷贝
             if (free_list < live) {
                 FL_UNSET(live, FL_MARK);
-                memcpy(free_list, live, live->size + HEADER_SIZE);
+                memcpy(free_list, live, live->size);
                 live->forwarding = free_list;
-                total -= HEADER_SIZE + live->size;
+                total -= live->size;
             } else {
                 break;
             }

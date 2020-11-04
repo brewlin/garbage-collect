@@ -32,7 +32,7 @@ void gc_init(size_t heap_size)
     gc_heaps_used = 3;
     for (size_t i = 0; i < 4; i++){
         //使用sbrk 向操作系统申请大内存块
-        void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+        void* p = sbrk(heap_size + PTRSIZE);
         if(p == NULL)exit(-1);
 
         gc_heaps[i].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
@@ -55,20 +55,18 @@ void promote(void *ptr)
     Header* obj = CURRENT_HEADER(ptr);
     //1 从老年代空间分配出一块 内存 (老年代堆 完全采用 gc标记-清除算法来管理)
     void* new_obj_ptr = major_malloc(CURRENT_HEADER(ptr)->size);
-    Header* new_obj   = CURRENT_HEADER(new_obj_ptr);
+    if(new_obj_ptr == NULL) abort();
 
-    if(new_obj == NULL){
-        abort();
-    }
+    Header* new_obj   = CURRENT_HEADER(new_obj_ptr);
     //将obj 拷贝到 new_obj中
-    memcpy(new_obj,obj,obj->size + HEADER_SIZE);
+    memcpy(new_obj,obj,obj->size);
 
     obj->forwarding = new_obj;
     //标志已经复制过了 forwarded = true
     FL_SET(obj,FL_COPIED);
 
     //for child: obj 这里是为了检查老年代对象是否有对象依然指向新生代中
-    for (void *p = ptr + 1; p < ptr + obj->size  ; p++) {
+    for (void *p = ptr; p < (void*)NEXT_HEADER(obj); p++) {
 
         //解引用 如果该内存依然是指向的from，且有forwarding 则需要改了
         void *ptr = *(void**)p;
@@ -106,7 +104,7 @@ void* gc_copy(void *ptr){
         if(hdr->age < AGE_MAX)
         {
             //TODO: to空间不够了之后 可以将这些数据复制到 老年代空间去
-            if((hdr->size + HEADER_SIZE) > ((Header*)to_free_p)->size){
+            if(hdr->size > ((Header*)to_free_p)->size){
                 printf("to 空间不够了 gc 复制阶段错误\n");
                 abort();
             }
@@ -116,23 +114,23 @@ void* gc_copy(void *ptr){
             //在准备分配前的总空间
             size_t total = forwarding->size;
             //分配一份内存 将源对象拷贝过来
-            memcpy(forwarding, hdr, hdr->size+HEADER_SIZE);
+            memcpy(forwarding, hdr, hdr->size);
             //拷贝过后 将原对象标记为已拷贝 为后面递归引用复制做准备
             FL_SET(hdr,FL_COPIED);
             //更新拷贝过后新对象的年龄
             forwarding->age ++;
 
             //free 指向下一个 body
-            to_free_p += (HEADER_SIZE + hdr->size);
+            to_free_p +=  hdr->size;
             //free_p 执行的剩余空间需要时刻维护着
-            ((Header*)to_free_p)->size = total - (hdr->size + HEADER_SIZE);
+            ((Header*)to_free_p)->size = total - hdr->size;
             //源对象 保留 新对象的引用
             hdr->forwarding = forwarding;
 
             printf("需要执行拷贝 ptr:%p hdr:%p  after:%p\n",ptr,hdr,forwarding);
             //从forwarding 指向的空间开始递归
             //递归子对象进行复制
-            for (void* p = (void*)(forwarding + 1) + 1 ; p < (void*)NEXT_HEADER(forwarding);p++){
+            for (void* p = (void*)(forwarding + 1) ; p < (void*)NEXT_HEADER(forwarding);p++){
                 //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
                 //递归进行 引用的拷贝
                 void *exist  = gc_copy(*(void **)p);
@@ -160,12 +158,11 @@ void update_reference()
     for(int i = 0; i < rs_index; i ++)
     {
         void* start =  rs[i];
-        void* end   =  start + CURRENT_HEADER(rs[i])->size;
 
         //判断对该对象递归引用拷贝后，是否还有继续在新生代的引用
         int has_new_obj = 0;
         //可能申请的内存 里面又包含了其他内存
-        for (void *p = start; p < end; p++) {
+        for (void *p = start; p < (void*)NEXT_HEADER(CURRENT_HEADER(start)); p++) {
 
             void *ptr = *(void**)p;
             GC_Heap *gh;
@@ -242,14 +239,14 @@ void*   minor_malloc(size_t req_size)
     DEBUG(printf("内存申请 :%ld\n",req_size));
     Header *obj;
     size_t do_gc = 0;
-
+    req_size += HEADER_SIZE;
     //对齐 字节
     req_size = ALIGN(req_size, PTRSIZE);
     if (req_size <= 0) return NULL;
 
     alloc:
     //查看分配空间是否还够用
-    if (new_free_p->size < req_size + HEADER_SIZE) {
+    if (new_free_p->size < req_size) {
         //一般是分块用尽会 才会执行gc 清除带回收的内存
         if (!do_gc) {
             do_gc = 1;
@@ -264,8 +261,8 @@ void*   minor_malloc(size_t req_size)
     obj = new_free_p;
 
     //将新生代空闲指针 移动到下一个空闲地址开头
-    int left_size = new_free_p->size - HEADER_SIZE - req_size;
-    new_free_p = (void*)(new_free_p+1) + req_size;
+    int left_size = new_free_p->size - req_size;
+    new_free_p = (void*)(new_free_p) + req_size;
     //并设置正确的空余空间大小
     new_free_p->size = left_size;
 
@@ -301,13 +298,13 @@ void  minor_gc(void)
 
     //清空 新生代
     new_free_p = gc_heaps[newg].slot ;
+    memset(new_free_p,0,gc_heaps[newg].size);
     new_free_p->size = gc_heaps[newg].size;
-    memset(new_free_p+1,0,new_free_p->size);
 
 
     //清空 幸存代  from
+    memset(gc_heaps[survivorfromg].slot,0,gc_heaps[survivorfromg].size);
     gc_heaps[survivorfromg].slot->size = gc_heaps[survivorfromg].size;
-    memset(gc_heaps[survivorfromg].slot + 1,0,gc_heaps[survivorfromg].size);
 
     //交换 swap(幸存代from ,幸存代to);
     GC_Heap tmp             = gc_heaps[survivorfromg];

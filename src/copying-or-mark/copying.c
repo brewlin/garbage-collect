@@ -18,7 +18,7 @@ void gc_init(size_t heap_size)
 
     for (size_t i = 0; i < gc_heaps_used; i++){
         //使用sbrk 向操作系统申请大内存块
-        void* p = sbrk(heap_size + PTRSIZE + HEADER_SIZE);
+        void* p = sbrk(heap_size + PTRSIZE);
         gc_heaps[i].slot = (Header *)ALIGN((size_t)p, PTRSIZE);
         gc_heaps[i].size = heap_size;
         gc_heaps[i].slot->size = heap_size;
@@ -66,13 +66,13 @@ void* gc_copy(void *ptr)
         //在准备分配前的总空间
         size_t total = forwarding->size;
         //分配一份内存 将源对象拷贝过来
-        memcpy(forwarding, hdr, hdr->size+HEADER_SIZE);
+        memcpy(forwarding, hdr, hdr->size);
         //拷贝过后 将原对象标记为已拷贝 为后面递归引用复制做准备
         FL_SET(hdr,FL_COPIED);
         //free 指向下一个 body
-        free_p += (HEADER_SIZE + hdr->size);
+        free_p += hdr->size;
         //free_p 执行的剩余空间需要时刻维护着
-        ((Header*)free_p)->size = total - (hdr->size + HEADER_SIZE);
+        ((Header*)free_p)->size = total - hdr->size;
         //源对象 保留 新对象的引用
         hdr->forwarding = forwarding;
 

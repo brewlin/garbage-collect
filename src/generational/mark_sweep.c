@@ -53,7 +53,7 @@ void     gc_sweep(void)
     //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
 
     //老年代gc 只清除 老年代堆即可
-    for (p = gc_heaps[oldg].slot; (void*)p < (void*)((size_t)gc_heaps[oldg].slot + HEADER_SIZE +  gc_heaps[oldg].size) ; p = NEXT_HEADER(p)) {
+    for (p = gc_heaps[oldg].slot; (void*)p < (void*)((size_t)gc_heaps[oldg].slot + gc_heaps[oldg].size) ; p = NEXT_HEADER(p)) {
         //查看该堆是否已经被使用
         if (FL_TEST(p, FL_ALLOC)) {
             //查看该堆是否被标记过
@@ -77,6 +77,7 @@ void     gc_sweep(void)
  */
 void*   major_malloc(size_t req_size)
 {
+    req_size -= HEADER_SIZE;
     //默认的gc_malloc 是老年代分配
     return gc_malloc(req_size);
 }
