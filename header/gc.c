@@ -179,47 +179,47 @@ void    gc_free(void *ptr)
     memset(ptr,0,target->size);
     target->flags = 0;
 
+    //空闲链表为空，直接将当前target挂到上面
     if(free_list == NULL){
         free_list = target;
         target->flags = 0;
         target->size += HEADER_SIZE;
         return;
     }
-
+    //特殊情况，如果target->next == free_list 在上面是无法判断的
+    if(NEXT_HEADER(target) == free_list){
+        target->size += (free_list->size + HEADER_SIZE);
+        target->next_free = free_list->next_free;
+        free_list = target;
+        return;
+    }
+    //搜索target可能在空闲链表上的区间位置
     prevp = free_list;
-    /* search join point of target to free_list */
-    for (hit = prevp; !(target > hit && target < hit->next_free); prevp = hit , hit = hit->next_free)
-        /* heap end? And hit(search)? */
-        if (hit >= hit->next_free && (target > hit || target < hit->next_free || hit->next_free == NULL))
+    for(hit = prevp; hit && hit->next_free ; prevp = hit,hit = hit->next_free)
+    {
+        //刚好 target就在 [hit,hit->next_free] 之间
+        if(target >= hit && target <= hit->next_free){
             break;
+        }
+        //跨堆的情况 说明target在两个堆之间 (heap1_end,heap2_start)
+        if(hit >= hit->next_free && (target > hit || target < hit->next_free))
+            break;
+    }
 
-    // 1. 在扩充堆的时候 这个target 的下个header 指向的是非法空间
-    // 在空闲链表上 找到了当前header
+    //1. 判断右区间  如果target属于右区间 则合并
     if (NEXT_HEADER(target) == hit->next_free) {
-        /* merge */
         target->size += (hit->next_free->size + HEADER_SIZE);
         target->next_free = hit->next_free->next_free;
-
-    //如果当前的下一个是 hit,将hit合并为target的一部分
-    }else if(NEXT_HEADER(target) == hit){
-        target->size += (hit->size + HEADER_SIZE);
-        target->next_free = hit->next_free;
-        if(hit == prevp && prevp == free_list) free_list = target;
-        else  prevp->next_free = target;
-        return;
     }else {
-        /* join next free block */
-        //1. 在扩充堆的时候 新生成的堆 会插入到 free_list 后面
         target->next_free = hit->next_free;
     }
-    //如果当前待回收的内存 属于 hit堆里的一部分，则进行合并
+
+    //2. 判断左区间  如果target属于做区间 则合并
     if (NEXT_HEADER(hit) == target) {
         /* merge */
         hit->size += (target->size + HEADER_SIZE);
         hit->next_free = target->next_free;
     }else {
-        //如果不是则 直接挂到空闲链表后面
-        /* join before free block */
         hit->next_free = target;
     }
 }

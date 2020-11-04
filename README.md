@@ -24,7 +24,7 @@ for(child: obj){
 2. 通过将分配的内存进行首地址对齐，然后在辨别指针的时候能够过滤一些
 ```
 
-## heaps 堆
+## [heaps](./header) 堆
 当前的所有gc实现都会提前向操作系统分配一块大内存`sbrk()`，成为独立管理的内存池，所有内存分配其实都是从我们维护的内存池中分配
 - gc_malloc 
 ```c
@@ -48,30 +48,23 @@ T* p = gc_malloc(sizeof(T));
 
 当前所有gc实现都是模拟的root，通过一个全局数组来模拟root对象
 
-## 标记-清除算法
+## 各种gc实现
+### 标记-清除算法
+- [mark-sweep](./src/mark-sweep) 基础实现
+- [mark-sweep_multi_free_list](./src/mark-sweep-multi-free-list) 多链表法实现
 
-### [mark-sweep](./src/mark-sweep) 
-基础实现
-### [mark-sweep_multi_free_list](./src/mark-sweep-multi-free-list) 
-多链表法实现
+### 引用计数算法
+- [reference-count](./src/refcount) 基础实现
 
-## 引用计数算法
-### [reference-count](./src/refcount) 
-基础实现
+### 复制算法
+- [copying](./src/copying) 基础实现
+- [copying_or_mark](./src/copying-or-mark) 复制算法+标记清除 组合应用实现
 
-## 复制算法
-### [copying](./src/copying) 
-基础实现
-### [copying_or_mark](./src/copying-or-mark) 
-复制算法+标记清除 组合应用实现
+### 压缩算法
+- [compact_lisp2](./src/compact-lisp2) lisp2 算法
+- [compact_two_finger](./src/compact-two-finger) two_finger 算法
 
-## 压缩算法
-### [compact_lisp2](./src/compact-lisp2) 
-lisp2 算法
-### [compact_two_finger](./src/compact-two-finger) 
-two_finger 算法
-
-## 分代垃圾回收算法
-[generational](./src/generational)
-## 增量式-三色标记算法
-[tri-color-marking](./src/tri-color-marking)
+### 分代垃圾回收算法
+- [generational](./src/generational)
+### 增量式-三色标记算法
+- [tri-color-marking](./src/tri-color-marking)
