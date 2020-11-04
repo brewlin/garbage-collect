@@ -1,4 +1,4 @@
-#include "gc.h"
+#include "../../header/gc.h"
 #include "header.h"
 
 //每次复制前将 该指针 指向 to的首地址
@@ -27,25 +27,6 @@ void gc_init(size_t heap_size)
         if(i) gc_free(gc_heaps[i].slot + 1);
     }
 }
-//重from堆 检查该指针
-Header*  get_header_by_from(void *ptr)
-{
-    size_t i;
-    Header* from_ptr = gc_heaps[from].slot;
-    if ((((void *)from_ptr) > ptr) && ((((void*)from_ptr) + HEADER_SIZE +  gc_heaps[from].size)) <= ptr) {
-        return NULL;
-    }
-    Header *p, *pend, *pnext;
-
-    pend = (Header *)(((void*)(from_ptr+1)) + gc_heaps[from].size);
-    for (p = from_ptr; p < pend; p = pnext) {
-        pnext = NEXT_HEADER(p);
-        if ((void *)(p+1) <= ptr && ptr < (void *)pnext) {
-            return p;
-        }
-    }
-    return NULL;
-}
 //在gc的时候 from已经全部复制到to堆
 //这个时候需要清空from堆，但是再次之前我们需要将free_list空闲指针还保留在from堆上的去除
 void remove_from(){
@@ -68,24 +49,15 @@ void remove_from(){
 
 }
 /**
- * 查看该对象是否存在于from堆上
- */
-int is_pointer_to_from_space(void* ptr)
-{
-
-    void* from_start = gc_heaps[from].slot;
-    void* from_end   = (void*)gc_heaps[from].slot + HEADER_SIZE + gc_heaps[from].size;
-    if((void*)ptr <= from_end && (void*)ptr >= from_start)
-        return 1;
-    return 0;
-}
-/**
  * 进行子对象拷贝
  */
 void* gc_copy(void *ptr)
 {
-    Header *hdr;
-    if (!(hdr = get_header_by_from(ptr))) return NULL;
+    Header  *hdr;
+    GC_Heap *gh;
+    if (!(gh = is_pointer_to_space(ptr,from))) return NULL;
+    if (!(hdr = get_header(gh,ptr))) return NULL;
+
     assert(FL_TEST(hdr,FL_ALLOC));
     //没有复制过  0 
     if(!IS_COPIED(hdr)){
@@ -126,7 +98,7 @@ void* gc_copy(void *ptr)
  */
 void* gc_mark_or_copy(void* ptr)
 {
-    if(is_pointer_to_from_space(ptr))
+    if(is_pointer_to_space(ptr,from))
         return gc_copy(ptr);   
     return gc_mark(ptr);
 }
@@ -145,9 +117,11 @@ void copy_reference()
         //可能申请的内存 里面又包含了其他内存
         for (void *p = start; p < end; p++) {
 
-            Header* hdr;
+            Header  *hdr;
+            GC_Heap *gh;
+            if (!(gh = is_pointer_to_space(*(void**)p,from))) continue;
             //解引用 如果该内存依然是指向的from，且有forwarding 则需要改了
-            if (!(hdr = get_header_by_from(*(void**)p))) continue;
+            if (!(hdr = get_header(gh,*(void**)p)))    continue;
             if(hdr->forwarding){
                 printf("拷贝引用 hdr:%p forwarding:%p\n",hdr,hdr->forwarding);
                 *(Header**)p = hdr->forwarding + 1;

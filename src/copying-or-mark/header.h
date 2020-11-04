@@ -19,7 +19,6 @@ void*   gc_mark_or_copy(void* ptr);
 void*   gc_copy(void *ptr);
 int     is_pointer_to_from_space(void* ptr);
 void    remove_from();
-Header* get_header_by_from(void *ptr);
 void    copy_reference();
 
 #endif //GC_LEARNING_HEADER_H
