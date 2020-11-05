@@ -1,4 +1,4 @@
-#include "../../header/gc.h"
+#include "../gc.h"
 #include "header.h"
 
 //每次复制前将 该指针 指向 to的首地址

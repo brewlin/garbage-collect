@@ -1,4 +1,4 @@
-#include "../../header/gc.h"
+#include "../gc.h"
 
 
 /**

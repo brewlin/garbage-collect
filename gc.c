@@ -215,7 +215,7 @@ void    gc_free(void *ptr)
         target->next_free = hit->next_free;
     }
 
-    //2. 判断左区间  如果target属于做区间 则合并
+    //2. 判断左区间  如果target属于左区间 则合并
     if (NEXT_HEADER(hit) == target) {
         /* merge */
         hit->size += target->size;
