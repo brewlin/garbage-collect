@@ -129,22 +129,23 @@ void test_reference_gc()
  */
 void test_malloc_speed(){
     auto_gc = 0;
-    time_t start,end;
-    start = time(NULL);
+    clock_t start,end;
+    double  duration;
+    start = clock();
+
 //    for (int i = 0; i < 1000; ++i) {
 //        int size = rand()%90;
 //        void *p = gc_malloc(size);
 //    }
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 100000; ++i) {
         int size = rand()%90;
         void *p = gc_malloc(size);
+        if(!p)abort();
+//        gc_free(p);
     }
-    void *p = gc_malloc(24);
-    p = gc_malloc(24);
-    p = gc_malloc(24);
-    gc();
-    end = time(NULL);
-    printf("execution seconds:%d\n",difftime(end,start));
+    end = clock();
+    duration = (double)(end - start)/CLOCKS_PER_SEC;
+    printf("execution seconds:%f\n",duration);
 }
 int  main(int argc, char **argv)
 {
