@@ -1,4 +1,3 @@
-
 阅读垃圾回收算法的分析与实现书,对相关算法理论翻译为c实现
 ```c
 void* p = gc_malloc(size);
@@ -13,6 +12,12 @@ gc();
 - [compact_two_finger](compact-two-finger) 压缩算法-two_finger
 - [generational](generational) 分代算法-复制+标记清除
 - [tri-color-marking](tri-color-marking) 增量式算法-三色标记
+
+test
+```asciidoc
+> dos2unix auto_test.sh
+> sh auto_test.sh
+```
 
 相关文档
 - [保守式gc](conservative.md) 关于保守式gc说明
