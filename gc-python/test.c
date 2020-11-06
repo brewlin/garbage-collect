@@ -14,5 +14,5 @@ int main()
     finish = clock();
     duration = (double)(finish - start) / CLOCKS_PER_SEC;
     printf( "%f seconds\n", duration );
-    return 1;
+    return 0;
 }
