@@ -1,5 +1,5 @@
 CC = gcc
-SRCS = $(wildcard *.c)
+SRCS = $(wildcard *.c) $(wildcard *.s)
 BIN = gc
 
 all: clean gc

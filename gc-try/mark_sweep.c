@@ -1,4 +1,7 @@
-#include "../gc.h"
+#include "gc.h"
+#include "root.h"
+
+void *sp_start;
 
 
 /**
@@ -75,9 +78,13 @@ void     gc_sweep(void)
  */
 void  gc(void)
 {
-    //垃圾回收前 先从 root 开始 进行递归标记
-    for(int i = 0;i < root_used;i++)
-        gc_mark(roots[i].ptr);
+    //现在开始是真正的扫描系统栈空间
+    void * cur_sp = get_sp();
+    //高低往低地址增长
+    assert(sp_start >= cur_sp);
+    for (; cur_sp < sp_start ; cur_sp += 4){
+        gc_mark(*(void**)cur_sp);
+    }
     //标记完成后 在进行 清除 对于没有标记过的进行回收
     gc_sweep();
 }
