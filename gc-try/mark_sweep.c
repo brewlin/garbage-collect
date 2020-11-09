@@ -74,10 +74,26 @@ void     gc_sweep(void)
     }
 }
 /**
- * 标记清除算法的gc实现
+ * 寄存器扫描
  */
-void  gc(void)
+void scan_register()
 {
+    void *reg;
+    if(reg = get_sp())  gc_mark(*(void**)reg);
+    if(reg = get_bp())  gc_mark(*(void**)reg);
+    if(reg = get_di())  gc_mark(*(void**)reg);
+    if(reg = get_si())  gc_mark(*(void**)reg);
+    if(reg = get_dx())  gc_mark(*(void**)reg);
+    if(reg = get_cx())  gc_mark(*(void**)reg);
+    if(reg = get_r8())  gc_mark(*(void**)reg);
+    if(reg = get_r9())  gc_mark(*(void**)reg);
+    if(reg = get_ax())  gc_mark(*(void**)reg);
+    if(reg = get_bx())  gc_mark(*(void**)reg);
+}
+/**
+ * 栈扫描
+ */
+void scan_stack(){
     //现在开始是真正的扫描系统栈空间
     void * cur_sp = get_sp();
     //高低往低地址增长
@@ -85,6 +101,15 @@ void  gc(void)
     for (; cur_sp < sp_start ; cur_sp += 4){
         gc_mark(*(void**)cur_sp);
     }
+}
+/**
+ * 标记清除算法的gc实现
+ */
+void  gc(void)
+{
+    scan_register();
+    scan_stack();
+
     //标记完成后 在进行 清除 对于没有标记过的进行回收
     gc_sweep();
 }
