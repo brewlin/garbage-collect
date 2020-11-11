@@ -2,7 +2,7 @@
 
 //多个回收链表 索引0 表示大于100字节的大内存空闲链表
 //1 - 99 分别表示各个字节的空闲内存
-Header *free_list[100];
+Header *free_list[33];
 
 GC_Heap gc_heaps[HEAP_LIMIT];
 size_t gc_heaps_used = 0;
@@ -71,12 +71,14 @@ Header* grow(size_t req_size)
     //因为gc_free 是公用的，所以需要 将实际 mem 地址传入
     //新申请的堆不需要 进行gc 只需要挂载到 free_list 链表上就行
     gc_free((void *)(up+1));
+
+    int index = (req_size-1) >> ALIGNMENT_SHIFT;
     //上面执行gc的时候，其实已经将free_list的表头改变，
     // 所以free_list->next_free 可能就是 up
-    if (req_size > MAX_SLICE_HEAP)
-        return free_list[0];
+    if (index > MAX_SLICE_HEAP)
+        return free_list[HUGE_BLOCK];
     else
-        return free_list[req_size];
+        return free_list[index];
 }
 /**
  * 分配一块内存
@@ -86,14 +88,14 @@ void*   gc_malloc(size_t req_size)
     printf("gc_malloc :%ld\n",req_size);
     Header *p, *prevp;
     size_t do_gc = 0;
+    if (req_size <= 0) return NULL;
+
     //对齐 字节
     req_size = ALIGN(req_size, PTRSIZE);
-    int index = req_size;
-    if (req_size <= 0) {
-        return NULL;
-    }
-    if(req_size > MAX_SLICE_HEAP)
-        index = 0;
+    int index = (req_size - 1) >> ALIGNMENT_SHIFT;
+
+    if(index > MAX_SLICE_HEAP)
+        index = HUGE_BLOCK;
     printf("gc_malloc :%d size:%ld\n",index,req_size);
 
     alloc:
@@ -151,30 +153,34 @@ void    gc_free(void *ptr)
 {
     DEBUG(printf("start free mem:%p\n",ptr));
     Header *target, *hit;
+    int index;
+
     //通过内存地址向上偏移量找到  header头
     target = (Header *)ptr - 1;
     //回收的数据立马清空
     memset(ptr,0,target->size);
 
+    index = (target->size - 1) >> ALIGNMENT_SHIFT;
+
     //如果是小内存 不需要合并直接挂到最新的表头即可
-    if(target->size <= MAX_SLICE_HEAP){
-        if(free_list[target->size]){
-            target->next_free = free_list[target->size]->next_free;
-            free_list[target->size]->next_free = target;
+    if(index <= MAX_SLICE_HEAP){
+        if(free_list[index]){
+            target->next_free = free_list[index]->next_free;
+            free_list[index]->next_free = target;
         }else{
-            free_list[target->size] = target;
+            free_list[index] = target;
         }
         return;
     }
     //大内存
-    if(free_list[0] == NULL){
-        free_list[0] = target;
+    if(free_list[HUGE_BLOCK] == NULL){
+        free_list[HUGE_BLOCK] = target;
         target->flags = 0;
         return;
     }
     /* search join point of target to free_list */
     //在回收的时候这个步骤 是为了找到 当前地址所在堆，但是如果当前ptr为新增的堆 则不需要这个步骤
-    for (hit = free_list[0]; !(target > hit && target < hit->next_free); hit = hit->next_free)
+    for (hit = free_list[HUGE_BLOCK]; !(target > hit && target < hit->next_free); hit = hit->next_free)
         if (hit >= hit->next_free && (target > hit || target < hit->next_free || hit->next_free == NULL))
             break;
 

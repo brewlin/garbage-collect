@@ -1,6 +1,6 @@
 #include "gc.h"
 int clear(){
-    for (int i = 0; i < 99 ; ++i)
+    for (int i = 0; i < 33 ; ++i)
         free_list[i] = NULL;
     for (int i = 0; i <= gc_heaps_used; ++i){
         gc_heaps[i].size = 0;

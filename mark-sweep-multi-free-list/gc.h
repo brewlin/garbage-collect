@@ -37,6 +37,9 @@ typedef struct gc_heap {
 #define TINY_HEAP_SIZE 0x4000
 //计算指针 所占内存大小
 #define PTRSIZE ((size_t) sizeof(void *))
+#define ALIGNMENT		    8
+#define ALIGNMENT_SHIFT		3
+
 #define HEADER_SIZE ((size_t) sizeof(Header))
 //堆的上限
 #define HEAP_LIMIT 1000000
@@ -77,12 +80,14 @@ Header*  get_header(GC_Heap *gh, void *ptr);
 
 void gc(void);
 //回收链表，挂着空闲链表
-extern Header *free_list[100];
+extern Header *free_list[33];
 extern GC_Heap gc_heaps[HEAP_LIMIT];
 extern size_t gc_heaps_used;
 extern int auto_gc;
 
-#define MAX_SLICE_HEAP 99
+#define MAX_SLICE_HEAP 31
+#define HUGE_BLOCK     32
+
 /****** 标记清除法实现-------------*/
 void gc_mark(void * ptr);
 void  gc_mark_range(void *start, void *end);
