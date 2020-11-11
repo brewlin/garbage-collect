@@ -55,19 +55,6 @@ void* gc_mark(void *ptr){
 }
 
 /**
- * 遍历root 进行标记
- * @param start
- * @param end
- */
-void  gc_mark_range(void *start, void *end)
-{
-    void *p;
-
-    gc_mark(start);
-
-}
-
-/**
  * 移动对象
  */
 void move_obj()
