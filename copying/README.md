@@ -1,14 +1,1 @@
-gc 复制算法
-
-
-# add_root
-这里和其他算法的`add_root`有点不一样，这里的参数不在是对象锁指向的地址
-而是对象本身的地址
-```asciidoc
-void *p = gc_malloc(sizeof(...));
-add_root(&p);
-```
-因为gc复制涉及到内存的拷贝，所以`p`所指向的内存也需要改变
-
-因为发送gc后将`from` 拷贝到 `to` 那么原先用户态的指针依然会执行from
-所以需要更改`p`执向到新地址
+[系列实现分析文档](https://wiki.brewlin.com/wiki/blog/gc-learning/GC%E7%AE%97%E6%B3%95%E5%88%86%E6%9E%90%E4%B8%8E%E5%AE%9E%E7%8E%B0/)

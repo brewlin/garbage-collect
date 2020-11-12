@@ -20,9 +20,7 @@ test
 ```
 
 相关文档
-- [保守式gc](conservative.md) 关于保守式gc说明
-- [heap](heap.md) 关于上面算法的堆依赖介绍
-- [root](root.md) 关于根的介绍
+[系列实现分析文档](https://wiki.brewlin.com/wiki/blog/gc-learning/GC%E7%AE%97%E6%B3%95%E5%88%86%E6%9E%90%E4%B8%8E%E5%AE%9E%E7%8E%B0/)
 
 其他源码阅读与实现
 - [gc-python](gc-python) python的gc实现
