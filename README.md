@@ -1,7 +1,8 @@
 # gc-learning
+<p>
 <img alt="GitHub" src="https://img.shields.io/github/license/brewlin/gc-learning">
 <img alt="GitHub code size in bytes" src="https://img.shields.io/github/languages/code-size/brewlin/gc-learning">
-
+</p>
 
 垃圾回收算法的分析与实现,基于c实现各系列gc [docs:分析文档](https://wiki.brewlin.com/wiki/blog/gc-learning/GC%E7%AE%97%E6%B3%95%E5%88%86%E6%9E%90%E4%B8%8E%E5%AE%9E%E7%8E%B0/)
 
@@ -17,6 +18,12 @@ Obj* p = gc_malloc(sizeof(Obj));
 // don't need care the `free`,let it go
 
 ```
+
+## @analysis
+- [x] python的gc实现
+- [ ] 实现一个可生产的gc
+
+
 ## @mark-sweep
 - [x] 标记清除算法-基础实现
 - [x] 标记清除算法-多链表法实现
@@ -38,10 +45,6 @@ Obj* p = gc_malloc(sizeof(Obj));
 ## @incremental
 - [x] 增量式算法-三色标记
 
-
-## @analysis
-- [x] python的gc实现
-- [ ] 实现一个可生产的gc
 
 
 
