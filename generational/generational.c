@@ -1,10 +1,10 @@
 #include "gc.h"
 #include "generational.h"
-
+//老年代的根,老年代通过当前集合来进行根扫描
 void* rs[ROOT_RANGES_LIMIT];
 int   rs_index = 0;
 
-//生成空间 new generational
+//新生代空间 new generational
 int newg          = 0;
 //幸存空间1 survivor from generational
 int survivorfromg = 1;
@@ -187,11 +187,10 @@ void update_reference()
 
         }
 
-        //如果已经没有引用在新生代了 则剔除该对象
+        //如果某老年代对象已经没有任何新生代对象引用了则从rs列表中剔除，下一次会成为优先被回收的对象
         if(!has_new_obj){
             //obj->remembers = false;
             FL_UNSET(CURRENT_HEADER(rs[i]),FL_REMEMBERED);
-
             //剔除
             rs_index -- ;
             void *tmp = rs[rs_index];

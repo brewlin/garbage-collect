@@ -5,7 +5,7 @@
 #include "refcount.h"
 #include "gc.h"
 void gc(void){
-  //nothing need to do for referenceount
+  //nothing need to do for reference-count
 }
 /**
  * 引用计数 + 1

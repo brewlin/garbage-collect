@@ -1,11 +1,1 @@
-当前的所有gc实现都会提前向操作系统分配一块大内存sbrk()，成为独立管理的内存池，所有内存分配其实都是从我们维护的内存池中分配
-```asciidoc
-```
-typedef struct t{
-    .....
-}T;
-//无需其他依赖 可动态分配不同类型大小的内存
-T* p = gc_malloc(sizeof(T));
-
-另外有一个空闲链表机制free_list，将所有的heap用单链表串联起来，
-且在用户释放内存的时候会挂到上面进行重复利用
+[系列实现分析文档](https://wiki.brewlin.com/wiki/blog/gc-learning/GC%E7%AE%97%E6%B3%95%E5%88%86%E6%9E%90%E4%B8%8E%E5%AE%9E%E7%8E%B0/)

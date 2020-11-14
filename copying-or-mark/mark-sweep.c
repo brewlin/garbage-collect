@@ -30,8 +30,7 @@ void* gc_mark(void *ptr){
 //    printf("mark ptr : %p, header : %p\n", ptr, hdr);
     //进行子节点递归 标记
     for (void* p = (void*)(hdr + 1); p < (void*)NEXT_HEADER(hdr); p++) {
-        //对内存解引用，因为内存里面可能存放了内存的地址 也就是引用，需要进行引用的递归标记
-        //递归进行 引用的拷贝
+        //对子类依然需要进行检查是否来自于from,to堆,否则不需要进行标记
         gc_mark_or_copy(*(void **)p);
     }
     return ptr;

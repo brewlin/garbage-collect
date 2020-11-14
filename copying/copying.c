@@ -3,11 +3,11 @@
 
 //每次复制前将 该指针 指向 to的首地址
 void* free_p;
-GC_Heap from;
-GC_Heap to;
+GC_Heap from;//用于分配的区
+GC_Heap to;  //用于拷贝缓存的区
 
 /**
- * 增加堆
+ * 为了集中于算法的表示，只允许两个堆存在，一个from，一个to
  **/
 void gc_init(size_t req_size)
 {
@@ -50,8 +50,8 @@ Header*  get_header_by_from(void *ptr)
     return NULL;
 }
 /**
- * 对该对象进行标记
- * 并进行子对象标记
+ * 对该对象进行标记 已拷贝
+ * 并进行子对象标记 已拷贝
  * 返回to空间的 body
  * @param ptr
  */
@@ -133,9 +133,10 @@ void  gc(void)
     for(int i = 0;i < root_used;i++){
         void* forwarded = gc_copy(roots[i].ptr);
         *(Header**)roots[i].optr = forwarded;
-        //将root 所有的执行换到 to上
+        //将root全部更新到to上
         roots[i].ptr = forwarded;
     }
+    //拷贝过后需要更新子类指针引用
     copy_reference();
 
     //清空 from
@@ -145,7 +146,7 @@ void  gc(void)
     Header* tmp = from.slot;
     from.slot = to.slot;
     to.slot = tmp;
-    //将空闲链表放到 to的最后一个索引
+    //将空闲链表指向 to的空闲首地址，这时候的to已经被交换为了from
     free_list = free_p;
 }
 

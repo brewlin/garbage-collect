@@ -21,7 +21,7 @@ Obj* p = gc_malloc(sizeof(Obj));
 
 ## @analysis
 - [x] python的gc实现
-- [ ] 实现一个可生产的gc
+- [ ] 实现一个可生产应用的gc
 
 
 ## @mark-sweep

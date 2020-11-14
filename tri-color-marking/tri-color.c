@@ -8,7 +8,10 @@ int max_mark  = 0;
 int max_sweep = 0;
 int sweeping  = 0;
 
-
+/**
+ * 三色标记是增量式 标记清除算法 所以和标记清除一样的流程
+ * 为了测试增加了 gc_init函数 自定义初始化堆
+ */
 void gc_init(size_t heap_size)
 {
     for (size_t i = 0; i < gc_heaps_used; i++){

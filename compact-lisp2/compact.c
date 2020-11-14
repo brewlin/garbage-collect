@@ -1,12 +1,12 @@
 #include "gc.h"
 /**
- * 初始化所有的堆
+ * 初始化一个堆，关闭自动扩充heap，方便测试
  **/
 void gc_init(size_t heap_size)
 {
     //关闭自动扩充堆
     auto_grow = 0;
-
+    
     gc_heaps_used = 1;
     //使用sbrk 向操作系统申请大内存块
     void* p = sbrk(heap_size + PTRSIZE);
@@ -24,7 +24,7 @@ void* gc_mark(void *ptr){
     GC_Heap *gh;
     Header *hdr;
 
-    /* mark check */
+    /* 校验指针 */
     if (!(gh = is_pointer_to_heap(ptr))){
 //      printf("not pointer\n");
         return ptr;
@@ -33,16 +33,18 @@ void* gc_mark(void *ptr){
 //      printf("not find header\n");
       return ptr;
     }
+    //校验对象合法
     if (!FL_TEST(hdr, FL_ALLOC)) {
       printf("flag not set alloc\n");
       return ptr;
     }
+    //校验是否已经被标记过
     if (FL_TEST(hdr, FL_MARK)) {
       //printf("flag not set mark\n");
       return ptr;
     }
 
-    /* marking */
+    /* 开始标记 hdr->flag */
     FL_SET(hdr, FL_MARK);
 //    printf("mark ptr : %p, header : %p\n", ptr, hdr);
     //进行子节点递归 标记
@@ -53,15 +55,19 @@ void* gc_mark(void *ptr){
     }
     return ptr;
 }
+/**
+ * 计算对象需要移动的目的地址
+ * src: obj
+ * dest: obj->forwarding
+ */
 void     set_forwarding_ptr(void)
 {
     size_t i;
     Header *p, *pend, *pnext ,*new_obj;
 
-    //遍历所有的堆内存
-    //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
-    for (i = 0; i < gc_heaps_used; i++) {
-        //pend 堆内存结束为止
+    //当前算法只有一个堆
+    for (i = 0; i < gc_heaps_used; i++) 
+    {
         pend = (Header *)(((size_t)gc_heaps[i].slot) + gc_heaps[i].size);
         p = gc_heaps[i].slot;
         new_obj = gc_heaps[i].slot;
@@ -81,8 +87,7 @@ void     set_forwarding_ptr(void)
     }
 }
 /**
- * 遍历root
- * 遍历堆
+ * 更新子类指针的引用
  */
 void adjust_ptr()
 {
@@ -96,8 +101,7 @@ void adjust_ptr()
     size_t i;
     Header *p, *pend, *pnext ,*new_obj;
 
-    //遍历所有的堆内存
-    //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
+    //当前只有一个堆
     for (i = 0; i < gc_heaps_used; i++)
     {
         //pend 堆内存结束为止
@@ -109,9 +113,9 @@ void adjust_ptr()
             //可能申请的内存 里面又包含了其他内存
             for (void* obj = p+1; obj < (void*)NEXT_HEADER(p); obj++)
             {
-                //正确找到了 child 引用
                 GC_Heap *gh;
                 Header  *hdr;
+                //正确找到了 child 引用
                 if (!(gh = is_pointer_to_heap(*(void**)obj))) continue;
                 if((hdr = get_header(gh,*(void**)obj))) {
                     *(Header **) obj = hdr->forwarding + 1; //更新引用
@@ -122,20 +126,21 @@ void adjust_ptr()
 
 }
 /**
- * 移动对象
+ * 前面两个步骤:
+ * 计算好了移动后的地址
+ * 更新好了子类的引用地址
+ * 现在就开始实际的移动拷贝对象即可
  */
 void move_obj()
 {
     size_t total;
     Header *p, *pend, *pnext ,*new_obj,*free_p;
 
-    //遍历所有的堆内存
-    //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
+    //只有一个堆
     for (size_t i = 0; i < gc_heaps_used; i++) {
         //pend 堆内存结束为止
         pend = (Header *)(((size_t)gc_heaps[i].slot) + gc_heaps[i].size);
 
-        //TODO: 这里只有一个堆，所以空闲链表直接从内存开始处算起
         free_p = gc_heaps[i].slot;
         total = gc_heaps[i].size;
         //堆的起始为止 因为堆的内存可能被分成了很多份，所以需要遍历该堆的内存
@@ -146,6 +151,7 @@ void move_obj()
                 //查看该堆是否被标记过
                 if (FL_TEST(p, FL_MARK)) {
                     new_obj = p->forwarding;
+                    //将当前的对象拷贝到之前计算好的位置
                     memcpy(new_obj, p, p->size);
                     FL_UNSET(new_obj,FL_MARK);
                     //空闲链表下移
@@ -175,9 +181,9 @@ void  gc(void)
     for(int i = 0;i < root_used;i++)
         gc_mark(roots[i].ptr);
 
-    //设置forwarding指针
+    //设置forwarding指针 计算好移动后的位置
     set_forwarding_ptr();
-    //调整指针
+    //更新子类引用
     adjust_ptr();
     //移动对象
     move_obj();

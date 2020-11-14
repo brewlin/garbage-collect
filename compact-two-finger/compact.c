@@ -1,7 +1,7 @@
 #include "gc.h"
 
 /**
- * 初始化所有的堆
+ * 压缩算法中方便测试算法本身，只允许一个堆且不允许自动个扩充
  **/
 void gc_init(size_t heap_size)
 {
@@ -63,10 +63,12 @@ void move_obj()
     size_t i,total;
     Header *live;
 
-    //遍历所有的堆内存
-    //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
-    for (i = 0; i < gc_heaps_used; i++) {
+    //只有一个堆
+    for (i = 0; i < gc_heaps_used; i++) 
+    {
+        //右指针，从尾部开始遍历
         live = (Header *) ((void * )(gc_heaps[i].slot + 1) + gc_heaps[i].size);
+        //左指针，从头部开始遍历
         free_list = gc_heaps[i].slot;
         total = gc_heaps[i].size;
         while (true) {
@@ -81,7 +83,8 @@ void move_obj()
                 //TODO:因为反向遍历的时候 没有域且内存非等分，所以不能通过 -= mem_size 来遍历
                 live = (Header *) ((void *) live - 1);
             //进行拷贝
-            if (free_list < live) {
+            if (free_list < live) 
+            {
                 FL_UNSET(live, FL_MARK);
                 memcpy(free_list, live, live->size);
                 live->forwarding = free_list;
@@ -108,6 +111,10 @@ void adjust_ptr()
     for(int i = 0; i < root_used; i ++){
         Header* current    = CURRENT_HEADER(roots[i].ptr);
         Header* forwarding =  current->forwarding;
+        //注意: 和lisp2不同的是，当前算法不会无差别移动所有对象，那么free_list右边会存在两种指针
+        // 1. 发生了移动的对象
+        // 2. 空闲对象
+        //所以root指向的对象在free_list后面，说明发生了移动，需要更新root
         if(current >= free_list){
             roots[i].ptr = forwarding+1;
             *(Header**)roots[i].optr = forwarding+1;
@@ -117,8 +124,7 @@ void adjust_ptr()
     size_t i;
     Header *p, *pend, *pnext ,*new_obj;
 
-    //遍历所有的堆内存
-    //因为所有的内存都从堆里申请，所以需要遍历堆找出待回收的内存
+    //当前只有一个堆
     for (i = 0; i < gc_heaps_used; i++)
     {
         //pend 堆内存结束为止

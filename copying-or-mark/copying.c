@@ -7,7 +7,11 @@ int from = 1;
 int to   = 0;
 
 /**
- * 初始化所有的堆
+ * 为了更好的表示算法本身，初始化3个堆
+ * 1. from 堆
+ * 2. to   堆
+ * 3. 专用于标记清除堆
+ * 这样的空间利用率是2/3，因为to占了1/3,也可以加大标记清除堆的数量更好的利用空间
  **/
 void gc_init(size_t heap_size)
 {
@@ -29,7 +33,8 @@ void gc_init(size_t heap_size)
 }
 //在gc的时候 from已经全部复制到to堆
 //这个时候需要清空from堆，但是再次之前我们需要将free_list空闲指针还保留在from堆上的去除
-void remove_from(){
+void remove_from()
+{
     //遍历所有的空闲链表如果在from堆则去除该引用
     Header* prevp = free_list;
 
@@ -132,7 +137,9 @@ void copy_reference()
     }
 }
 
-
+/** 
+ * 执行gc
+ */
 void  gc(void)
 {
     printf("执行gc复制----\n");
@@ -148,11 +155,11 @@ void  gc(void)
         roots[i].ptr = forwarded;
     }
     copy_reference();
-    //其他部分执行gc清除
+
+    //对标记清除堆执行标记清除算法,from,to堆忽略
     gc_sweep();
     //首先将free_p 指向的剩余空间  挂载到空闲链表上 
     //其实就是将原先to剩余的空间继续利用起来
-
     //如果没有剩余空间了则不进行操作
     if(free_p < ((void*)gc_heaps[to].slot + gc_heaps[to].size))
         gc_free((Header*)free_p+1);
@@ -168,6 +175,6 @@ void  gc(void)
 
     //开始交换from 和to
     to = from;
-    from = (from + 1)%10;
+    from = (from + 1) % 10;
 }
 
