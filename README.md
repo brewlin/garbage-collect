@@ -29,6 +29,7 @@ Obj* p = gc_malloc(sizeof(Obj));
 ## @mark-sweep
 - [x] 标记清除算法-基础实现
 - [x] 标记清除算法-多链表法实现
+- [x] 标记清除算法-位图式
 
 ## @reference-count 
 - [x] 引用计数算法
