@@ -203,8 +203,7 @@ void* mallocgc(uintptr size,type* typ,bool needzero)
 
 	//需要触发一次gc ,多个线程并发gc只有一个线程会拿到锁后执行gc，其他线程只会帮忙处理一下清除工作
 	if( shouldhelpgc ){
-//	    gcStart();
+	    gcStart();
 	}
-
 	return x;
 }

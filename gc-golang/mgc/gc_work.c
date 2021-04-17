@@ -87,7 +87,7 @@ workbuf* getempty()
 	}
 	if ( b == NULL ){
 		// Allocate more workbufs.
-		span* s;
+		span* s = NULL;
 		if ( work.wbufSpans.free.first != NULL ) {
 			lock(&work.wbufSpans.locks);
 			s = work.wbufSpans.free.first;
@@ -173,6 +173,47 @@ bool gcwork_putFast(gcWork* w,uintptr obj)
 	wbuf->obj[wbuf->nobj] = obj;
 	wbuf->nobj++;
 	return true;
+}
+uintptr gcwork_tryGetFast(gcWork* w){
+	workbuf* wbuf = w->wbuf1;
+	if (wbuf == NULL ){
+		return NULL;
+	}
+	if (wbuf->nobj == 0 ){
+		return NULL;
+	}
+
+	wbuf->nobj--;
+	return wbuf->obj[wbuf->nobj];
+}
+
+uintptr gcwork_tryGet(gcWork* w)
+{
+	workbuf* wbuf = w->wbuf1;
+	if (wbuf == NULL ){
+	    gcwork_init(w);
+		wbuf = w->wbuf1;
+		// wbuf is empty at this point.
+	}
+	if (wbuf->nobj == 0 ){
+	    workbuf* tmp = w->wbuf1;
+	    w->wbuf1 = w->wbuf2;
+	    w->wbuf2 = tmp;
+		wbuf = w->wbuf1;
+		if (wbuf->nobj == 0 ){
+			workbuf* owbuf = wbuf;
+			wbuf = trygetfull();
+			if (wbuf == NULL ){
+				return NULL;
+			}
+			if(owbuf->nobj != 0) throw("workbuf is not empty!");
+			lf_push(&work.empty,&owbuf->node);
+			w->wbuf1 = wbuf;
+		}
+	}
+
+	wbuf->nobj--;
+	return wbuf->obj[wbuf->nobj];
 }
 /**
  * @param w

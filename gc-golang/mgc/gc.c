@@ -34,6 +34,11 @@ void gcStart()
     gcphase = _GCmark;
     work.userForced = true;
 	stopTheWorld(&allm,ncpu);
+	//开始标记
+	gcWork gcw;
+	gcwork_init(&gcw);
+//    gcDrain(&gcw);
+    //标记结束
     gcMarkDone();
     startTheWorld();
 //    atomic_Xadd(&work.gcing,-1);

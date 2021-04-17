@@ -21,4 +21,7 @@ uintptr sweepone();
 void    bgsweep();
 bool    span_sweep(span* s,bool preserve);
 
+extern __thread uintptr stk_start;
+extern __thread uintptr stk_end;
+
 #endif //GOC_GC_H

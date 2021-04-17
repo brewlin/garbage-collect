@@ -52,6 +52,12 @@ typedef struct {
 
 extern _work work;
 
-bool gcwork_putFast(gcWork* w,uintptr obj);
-void gcwork_put(gcWork* w, uintptr obj);
+bool    gcwork_putFast(gcWork* w,uintptr obj);
+void    gcwork_put(gcWork* w, uintptr obj);
+void    greyobject(uintptr obj, span *s, gcWork* gcw, uintptr objIndex);
+uintptr findObject(uintptr p, span** ss,uintptr* objIndex);
+uintptr gcwork_tryGet(gcWork* w);
+uintptr gcwork_tryGetFast(gcWork* w);
+void    gcDrain(gcWork* gcw);
+void    gcwork_init(gcWork* w);
 #endif //GOC_GC_WORK_H

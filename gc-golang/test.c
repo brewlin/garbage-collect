@@ -13,10 +13,13 @@
 #include "heap/heap.h"
 #include "proc/proc.h"
 #include "sys/defines.h"
+#include "mgc/gc.h"
+#include "mgc/root.h"
 
 
 void initm(int _mid)
 {
+    stk_start = get_sp();
     regsig();
     _g_ = malloc(sizeof(g));
     _g_->m = malloc(sizeof(m));
@@ -41,6 +44,9 @@ void* alloc(void* arg){
             throw("alloc failed\n")
         }
         *p = i;
+        gcStart();
+        printf("%p %d\n",p,*p);
+
         i++;
     }
 }

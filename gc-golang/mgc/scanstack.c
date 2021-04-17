@@ -8,7 +8,6 @@
 #include "../heap/arena.h"
 #include "gc_work.h"
 
-bool useCheckmark = false;
 /**
  * 如果obj还没有被标记过，则直接进行标记为灰色 丢入队列里 等待转为黑色
  * @param obj
@@ -62,6 +61,7 @@ void greyobject(uintptr obj, span *s, gcWork* gcw, uintptr objIndex)
  */
 uintptr findObject(uintptr p, span** ss,uintptr* objIndex)
 {
+    *objIndex = 0;
     span* s = heap_spanOf(p);
     *ss     = s;
     uintptr base = 0;

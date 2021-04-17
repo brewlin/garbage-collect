@@ -143,7 +143,7 @@ span* heap_spanOf(uintptr p)
 	uint ri = arenaIndex(p);
 	if ( arenaL1Bits == 0 ) {
 		// If there's no L1, then ri.l1() can't be out of bounds but ri.l2() can.
-		if ( arena_l2(ri) >= (uint)(heap_.arenas[0].used) ) {
+		if ( arena_l2(ri) >= (uint)(heap_.arenas[0].total) ) {
 			return NULL;
 		}
 	}
@@ -161,7 +161,7 @@ span* heap_spanOf(uintptr p)
 	}
 	heapArena** ha = ARRAY_GET(l2,arena_l2(ri));
 	if ( *ha == NULL ) {
-		printf("arena and span not exist!");
+//		throw("arena and span not exist!");
 		return NULL;
 	}
 	//找到对应的span
@@ -208,6 +208,7 @@ void heap_setSpans(uintptr base,uintptr npage,span* s )
 // and places them in scav. h must be locked.
 void heap_scavengeLargest(uintptr nbytes)
 {
+    return;
     heap* h = &heap_;
 	// Use up scavenge credit if there's any available.
 	if ( nbytes > h->scavengeCredit ) {

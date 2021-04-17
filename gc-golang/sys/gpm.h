@@ -13,6 +13,7 @@
 #include "../cache/cache.h"
 #include "../malloc/fixalloc.h"
 #include "array.h"
+#include "../mgc/gc_work.h"
 
 typedef struct mstack stack;
 typedef struct gg     g;
@@ -64,6 +65,7 @@ struct mm {
 
 };
 
+
 //GPM 中的p 管理者协程队列
 struct pp {
 	//每个p自带一个 固定内存分配
@@ -73,6 +75,8 @@ struct pp {
 	uint32	status; //当前p的状态 one of pidle/prunning/...
 	//绑定对应线程M
 	uintptr m;
+
+	gcWork	gcw;
 
 	//每个处理器都标配一个特殊协程，专用于gc阶段的标记工作
 	uintptr gcBgMarkWorker;
