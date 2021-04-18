@@ -74,7 +74,7 @@ uintptr findObject(uintptr p, span** ss,uintptr* objIndex)
     if ( s->basemask != 0 ){
         // optimize for power of 2 sized objects.
         base = s->startaddr;
-        base = base + (p-base)&((uintptr)s->basemask);
+        base = base + ((p-base)&((uintptr)s->basemask));
         *objIndex = (base - s->startaddr) >> s->divshift;
         // base = p & s.baseMask is faster for small spans,
         // but doesn't work for large spans.

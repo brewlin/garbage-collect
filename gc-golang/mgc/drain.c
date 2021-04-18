@@ -21,7 +21,7 @@ void gcDrain(gcWork* gcw)
     //高低往低地址增长
     uintptr cur_sp = stk_end;
     if(stk_start <= stk_end) throw("stack error!")
-    for (; cur_sp < stk_start ; cur_sp += 4){
+    for (; cur_sp < stk_start ; cur_sp += 1){
         span*   s;
         uintptr objIndex;
         uintptr base = findObject(*(void**)cur_sp,&s,&objIndex);
@@ -32,8 +32,7 @@ void gcDrain(gcWork* gcw)
     }
 
 
-    //开始标记剩余灰色对象
-    //NOTICE: 目前不支持扫描对象
+    //开始标记剩余需要扫描的灰色对象
     while(true){
         uintptr obj = gcwork_tryGetFast(gcw);
         if(obj == NULL){
@@ -41,6 +40,20 @@ void gcDrain(gcWork* gcw)
             if(obj == NULL)
                 break;
         }
+        span*   s = NULL;
+        uintptr objIndex;
+        uintptr base = findObject(obj,&s,&objIndex);
+        if(base == 0) continue;
+        //开始扫描
+        uintptr  size = s->elemsize;
+        for(uintptr i = base ; i < obj + size; i++){
+            if(findObject(*(void**)i,&s,&objIndex) != 0){
+                printf("markone:%p\t",*(void**)i);
+                greyobject(*(void**)i,s,gcw,objIndex);
+            }
+        }
+        printf("\n\n");
+
     }
 
     //标记结束

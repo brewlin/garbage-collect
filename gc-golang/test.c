@@ -36,19 +36,23 @@ void* alloc(void* arg){
     allm[(int)arg] = getg()->m;
     while(gcphase != _GCoff){}
 
-    int i = 0;
-    while(i < 1000){
-        int size = rand() % 90;
-        int *p = mallocgc(size,NULL,true);
-        if(p == NULL){
-            throw("alloc failed\n")
-        }
-        *p = i;
-        gcStart();
-        printf("%p %d\n",p,*p);
 
-        i++;
+    int n = 100;
+    //构造一个需要gc扫描的内存
+    type typ;
+    typ.kind = 1;
+    int* arr = mallocgc(n* sizeof(int),&typ,true);
+    for(int i = 0; i< n ;i ++){
+        //干扰信息
+        int interfere = rand()%90;
+        mallocgc(interfere,NULL,true);
+        arr[i] = i;
     }
+    for(int i = 0; i < n ; i ++){
+        if(arr[i] != i) throw("mem error!")
+    }
+
+
 }
 void osinit()
 {
@@ -58,7 +62,7 @@ void osinit()
     gcBlackenEnabled = false;
     //初始化全局堆
     mallocinit();
-    //TODO: 开启多个线程进行分配内存,并发gc需要调度器参与，目前只支持单线程gc，但支持多线程分配
+    //TODO: 开启多线程进行并发gc需要调度器参与，目前只支持单线程gc，但支持多线程分配
     pthread_t tid;
     pthread_create(&tid,NULL,alloc,0);
     pthread_join(tid,NULL);

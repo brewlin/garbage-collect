@@ -37,7 +37,7 @@ void gcStart()
 	//开始标记
 	gcWork gcw;
 	gcwork_init(&gcw);
-//    gcDrain(&gcw);
+    gcDrain(&gcw);
     //标记结束
     gcMarkDone();
     startTheWorld();
