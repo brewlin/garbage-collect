@@ -11,6 +11,7 @@
 #include "../span/span.h"
 #include "../sys/gpm.h"
 #include "gc_sweepbuf.h"
+#include "bitmap.h"
 
 
 /**
