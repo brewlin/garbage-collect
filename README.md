@@ -6,7 +6,7 @@
 
 垃圾回收算法的分析与实现,基于c实现各系列gc [docs:分析文档](https://wiki.brewlin.com/wiki/blog/gc-learning/GC%E7%AE%97%E6%B3%95%E5%88%86%E6%9E%90%E4%B8%8E%E5%AE%9E%E7%8E%B0/)
 
-在编程语言中引入gc的例子:[colang](https://github.com/brewlin/colang.git)
+在编程语言中引入gc的例子:[too](https://github.com/toolang/too)
 
 ```asciidoc
 > dos2unix auto_test.sh
