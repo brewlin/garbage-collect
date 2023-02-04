@@ -1,3 +1,5 @@
 .idea
 gc
 *.dSYM
+bin
+.vscode
