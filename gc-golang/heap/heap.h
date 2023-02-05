@@ -21,13 +21,13 @@ typedef struct mheap heap;
 
 
 
-
+// Main malloc heap 主堆
 struct mheap {
     //线程锁
     mutex       locks;
 
     //下面是两个二叉树 存储的span
-    treap       free;
+    treap       free; // free and non-scavenged spans 空闲和未回收的spans
     treap       scav;
 
     //包含了所有的span*

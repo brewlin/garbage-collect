@@ -2,13 +2,13 @@
 #include "../mgc/bitmap.h"
 #include "malloc.h"
 #include "../sys/gpm.h"
-
+// 物理页大小
 uintptr physPageSize;
 
-//初始化 arean heap  span 等
+//初始化 arean区域 heap  span 等
 void mallocinit()
 {
-	//初始化堆
+	//初始化堆 Initialize the heap
 	heap_init();
 
 	//给当前mcache 设置缓存

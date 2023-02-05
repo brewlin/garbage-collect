@@ -12,6 +12,7 @@ typedef struct mspan     span;
 typedef struct mspanlist spanlist;
 typedef uint8  spanclass;
 
+// 对应golang的 type mspan struct
 struct mspan{
     //双向链表
     span* next;

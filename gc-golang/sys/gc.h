@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include "platform.h"
 #include "defines.h"
+#include <stdio.h>
 
 typedef unsigned char      uint8;
 typedef unsigned short int uint16;
@@ -59,5 +60,9 @@ extern uint32 gcBlackenEnabled;
 extern uint32 gcphase;
 extern uint8 oneBitCount[256];
 extern int32  ncpu;
+
+#define DEBUG(fmt, ...) \
+  printf(fmt, ##__VA_ARGS__);   \
+  printf(" %s() %s:%d\n", __func__, __FILE__, __LINE__)
 
 #endif //GOC_GC_H
