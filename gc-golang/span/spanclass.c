@@ -48,11 +48,11 @@ bool noscan(spanclass sc)
 /**
  *
  * @param sc
- * @param noscan
+ * @param noscan true代表对象不包含指针
  * @return
  */
 spanclass makeSpanClass(spanclass sc,bool noscan)
 {
-    return (spanclass)(sc << 1) | (spanclass)bool2int(noscan);
+    return (spanclass)(sc << 1) | (spanclass)bool2int(noscan); // example: sc=3, span class = 3 << 1 | 1 = 7
 
 }

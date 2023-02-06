@@ -30,9 +30,9 @@ struct mtreapNode{
     treapNode* left;
     treapNode* parent;
 
-    size_t     npagesKey;
+    size_t     npagesKey; // number of pages in spanKey, used as primary sort key
     span*      spankey;
-    // random number used by treap algorithm to keep tree probabilistically balanced
+    // 优先级 random number used by treap algorithm to keep tree probabilistically balanced treap 算法使用随机数来保持树的概率平衡
     uint32     priority;
 };
 
