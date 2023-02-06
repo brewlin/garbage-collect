@@ -60,7 +60,7 @@ void osinit()
     physPageSize = sysconf(_SC_PAGESIZE);  // 出于通用性的考虑， 物理页大小获取的方式是通过 POSIX sysctl 这个系统调用进行获取
     gcphase = _GCoff;
     gcBlackenEnabled = false;
-    //初始化全局堆
+    //初始化全局堆, 对应 func mallocinit()
     mallocinit();
     //TODO: 开启多线程进行并发gc需要调度器参与，目前只支持单线程gc，但支持多线程分配
     pthread_t tid;
@@ -69,6 +69,6 @@ void osinit()
 }
 void main(){
     DEBUG("start");
-    osinit(); // osinit 完成对 CPU 核心数的获取，因为这与调度器有关, 运行时最为重要的两个系统级参数：CPU 核心数与内存物理页大小
+    osinit(); // 对应golang src/runtime/os_linux.go func osinit() osinit 完成对 CPU 核心数的获取，因为这与调度器有关, 运行时最为重要的两个系统级参数：CPU 核心数与内存物理页大小
     DEBUG("end");
 }

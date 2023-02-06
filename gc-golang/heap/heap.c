@@ -35,7 +35,7 @@ void heap_init()
 {
     heap* h = &heap_;
     //初始化各种分配器
-    fixalloc_init(&h->treapalloc, sizeof(treapNode),NULL,NULL);
+    fixalloc_init(&h->treapalloc, sizeof(treapNode),NULL,NULL); // 对应golang: func (f *fixalloc) init
     fixalloc_init(&h->spanalloc, sizeof(span),recordspan,h);
     fixalloc_init(&h->cachealloc, sizeof(cache),NULL,NULL);
 

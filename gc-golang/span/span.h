@@ -57,10 +57,19 @@ struct mspan{
     //如果 n >= freeindex and allocBits[n/8] & (1<<(n%8)) == 0
     //说明对象n是空闲可用于分配的内存
     //所以对象n从 n*elemsize + (start << pageShift) 地址处开始分配
+    /*
+    allocBits 和 gcmarkBits 持有指向 span 的标记和分配位的指针。 指针是 8 字节对齐的。 这些数据保存在三个arenas区域。 
+    free：不再访问的肮脏arenas并且可以重复使用。
+    next：保存下一个GC周期要用到的信息。 
+    当前：此 GC 周期中正在使用的信息。 
+    previous：在上一个 GC 周期中使用的信息。 新的 GC 周期从调用 finishsweep_m 开始。 finishsweep_m 将上一个竞技场移动到空闲竞技场，将当前竞技场移动到上一个竞技场，将下一个竞技场移动到当前竞技场。 下一个 arena 被填充，因为跨度请求内存以保存下一个 GC 周期的 gcmarkBits 以及新分配的跨度的 allocBits。
+    指针算法是“手动”完成的，而不是使用数组来避免沿关键性能路径进行边界检查。 扫描将释放旧的 allocBits 并将 allocBits 设置为 gcmarkBits。 gcmarkBits 被新清零的内存所取代
+    */
     uint8*    allocBits;
     uint8*    gcmarkBits;
     //8字节 64位来标记每个 每个slot是否被使用的情况
 
+    // Cache of the allocBits at freeindex. allocCache is shifted such that the lowest bit corresponds to the bit freeindex. allocCache holds the complement of allocBits, thus allowing ctz (count trailing zero) to use it directly. allocCache may contain bits beyond s.nelems; the caller must ignore these. freeindex 处的 allocBits 缓存。 allocCache 被移动，使得最低位对应于 freeindex 位。 allocCache 持有 allocBits 的补码，因此允许 ctz（计数尾随零）直接使用它。 allocCache 可能包含超出 s.nelems 的位； 调用者必须忽略这些。
     uint64    allocCache;
 };
 

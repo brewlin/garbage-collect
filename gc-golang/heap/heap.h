@@ -49,7 +49,7 @@ struct mheap {
     fixalloc    specialprofilealloc;
     // allocator for arenaHints
     fixalloc    arenaHintAlloc;
-    //仅在32位系统上才会用到？
+    //仅在32位系统上才会用到？ arena 是预留的空间，用于分配堆 arena（实际的 arena）。 这仅用于 32 位。
     lineralloc arena;
 
     //保存了所有的arena的索引 uint8
