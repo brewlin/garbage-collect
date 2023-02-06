@@ -28,7 +28,7 @@ void recordspan(void* vh, void* p) {
 }
 
 /**
- * 堆初始化
+ * 堆初始化, 对应golang: func (h *mheap) init()
  * @param h
  */
 void heap_init()

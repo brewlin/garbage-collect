@@ -57,7 +57,7 @@ void* alloc(void* arg){
 void osinit()
 {
     ncpu = (int32)(sysconf(_SC_NPROCESSORS_ONLN));
-    physPageSize = sysconf(_SC_PAGESIZE);
+    physPageSize = sysconf(_SC_PAGESIZE);  // 出于通用性的考虑， 物理页大小获取的方式是通过 POSIX sysctl 这个系统调用进行获取
     gcphase = _GCoff;
     gcBlackenEnabled = false;
     //初始化全局堆
@@ -68,5 +68,7 @@ void osinit()
     pthread_join(tid,NULL);
 }
 void main(){
-    osinit();
+    DEBUG("start");
+    osinit(); // osinit 完成对 CPU 核心数的获取，因为这与调度器有关, 运行时最为重要的两个系统级参数：CPU 核心数与内存物理页大小
+    DEBUG("end");
 }
