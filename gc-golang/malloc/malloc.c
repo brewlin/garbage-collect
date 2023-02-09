@@ -6,16 +6,26 @@
 uintptr physPageSize;
 
 //初始化 arean区域 heap  span 等
+// 由schedinit调用，进程启动后会进入这里
+// mallocinit 实现内存分配的一些初始化，检查对象规格大小对照表，
+// 还将连续的虚拟地址，划分成三大块：
+/*
+      512MB      16GB            512GB
+	+-------+-------------+-------------------+
+	| spans |    bitmap   |       arena       |
+	+-------+-------------+-------------------+
+*/
+// 这三个区域可以按需同步线性扩张，无须预分配内存
 void mallocinit()
 {
-	//初始化堆 Initialize the heap
+	//初始化堆 Initialize the heap -> mheap_.init()
 	heap_init();
 
 	//给当前mcache 设置缓存
 	_g_ = malloc(sizeof(g));
     _g_->m = malloc(sizeof(m));
     _g_->m->mallocing  = 0;
-    _g_->m->mcache = allocmcache();
+    _g_->m->mcache = allocmcache(); // 对应: func allocmcache() *mcache
 
     //初始成员变量
     array_init(&heap_.allspans,ARRAY_SIZE, sizeof(span*));

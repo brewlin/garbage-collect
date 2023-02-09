@@ -21,7 +21,7 @@ typedef struct mheap heap;
 
 
 
-// Main malloc heap 主堆
+// Main malloc heap 主堆  type mheap struct
 struct mheap {
     //线程锁
     mutex       locks;
@@ -80,7 +80,7 @@ struct mheap {
     //统计已经申请的大对象个数
     uint64      nlargealloc; // number of large object allocations
 
-    //中央空闲链表数组 采用 2*67个空间来存储多尺寸对象，一半存储指针对象 另一半存储非指针对象
+    //中央空闲链表数组 采用 2*67个空间来存储多尺寸对象，一半存储指针对象 另一半存储非指针对象, heap里其实是维护了134个central，这134个central对应了 mcache 中的 alloc 数组，也就是每一个spanClass就有一个central。 所以，在mcache中申请内存时，如果在某个 spanClass 的内存链表上找不到空闲内存，那么 mcache 就会向对应的 spanClass 的central获取一批内存块。 注意，这里central数组的定义里面使用填充字节，这是因为多线程会并发访问不同central避免false sharing。
     central    centrals[numSpanClasses];
 
 };

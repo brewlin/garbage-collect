@@ -28,12 +28,12 @@ void recordspan(void* vh, void* p) {
 }
 
 /**
- * 堆初始化, 对应golang: func (h *mheap) init()
+ * 堆初始化, 对应golang: func (h *mheap) init(), mheap 初始化
  * @param h
  */
 void heap_init()
 {
-    heap* h = &heap_;
+    heap* h = &heap_; // var mheap_ mheap
     //初始化各种分配器
     fixalloc_init(&h->treapalloc, sizeof(treapNode),NULL,NULL); // 对应golang: func (f *fixalloc) init
     fixalloc_init(&h->spanalloc, sizeof(span),recordspan,h);

@@ -85,12 +85,13 @@ uintptr cache_nextFree(cache* c,spanclass spc,span** ss,bool* shouldhelpgc)
 	}
 
 	// Indicate that this span is cached and prevent asynchronous
-	// sweeping in the next sweep phase.
+	// sweeping in the next sweep phase. 表明这个span被缓存，防止在下一个扫描阶段进行异步扫描
 	s->sweepgen = heap_.sweepgen +  3;
 
 	c->alloc[spc] =  s;
 }
 /**
+ * 对应: func allocmcache() *mcache
  * @return
  */
 cache* allocmcache()

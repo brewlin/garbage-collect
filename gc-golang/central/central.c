@@ -14,7 +14,7 @@
 
 /**
  *
- * 初始化中央空闲链表
+ * 初始化中央空闲链表, 对应: func (c *mcentral) init
  * @param c
  * @param i
  */

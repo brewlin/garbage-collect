@@ -16,7 +16,7 @@
 #define largeSizeDiv    128
 #define _NumSizeClasses 67 // 共有67种内存尺寸, size class 从 1 到 66 共 66 个，代码中_NumSizeClasses=67代表了实际使用的 size class 数量，即 67 个，从 0 到 67，size class 0 实际并未使用到
 #define _PageShift      13 // 每页大小为8k
-#define numSpanClasses  (_NumSizeClasses << 1)
+#define numSpanClasses  (_NumSizeClasses << 1) // 134
 #define tinySpanClass   (uint8)(tinySizeClass<<1 | 1)
 
 #define  mSpanDead   1
@@ -69,7 +69,7 @@
 
 
 //alloc
-#define fixAllocChunk (16 << 10)
+#define fixAllocChunk (16 << 10) // 16384
 
 #define deBruijn64          0x0218a392cd3d5dbf
 

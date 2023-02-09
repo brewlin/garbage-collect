@@ -11,7 +11,7 @@
 #include "../sys/gc.h"
 
 typedef struct _mlink     mlink;
-typedef void (*firstp)(void* arg,void* p);
+typedef void (*firstp)(void* arg,void* p); // 函数指针
 typedef struct mpalloc    palloc;
 typedef struct mfixalloc fixalloc;
 
@@ -21,7 +21,7 @@ struct _mlink {
 
 
 
-//固定分配
+//固定分配, fixalloc 是slab风格的分配器，用于分配固定大小的对象。 fixalloc分配的对象可以被释放，但是这个内存可能会被fixalloc pool复用， 因此它只能给相同类型的对象复用
 struct mfixalloc {
     uintptr    size;
 
