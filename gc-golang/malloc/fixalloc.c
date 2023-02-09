@@ -43,7 +43,7 @@ void fixalloc_free(fixalloc* f,uintptr*  p)
 }
 
 /**
- * 固定分配f->size
+ * 固定分配f->size, 对应: func (f *fixalloc) alloc()
  * @param f
  * @return
  */
@@ -74,7 +74,7 @@ uintptr* fixalloc_alloc(fixalloc* f)
     v = (void*)f->chunk;
     //只有span 分配的时候才会有这个钩子
     if (f->first != NULL ) {
-        f->first(f->arg, v);
+        f->first(f->arg, v); // -> recordspan
     }
     f->chunk  =  f->chunk + f->size;
     f->nchunk -= (uint32)(f->size);

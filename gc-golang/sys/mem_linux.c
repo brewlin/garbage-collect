@@ -83,6 +83,7 @@ void* sys_fixalloc(uintptr size,uintptr align)
 
 uint32 adviseUnused = (uint32)(_MADV_FREE);
 /**
+ * 对应: func persistentalloc, func sysAlloc
  * @param n
  * @return
  */
